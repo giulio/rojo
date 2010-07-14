@@ -1,5 +1,7 @@
 package org.rojo.domain;
 
+import java.util.List;
+
 import org.rojo.annotations.Entity;
 import org.rojo.annotations.Id;
 import org.rojo.annotations.Reference;
@@ -19,6 +21,9 @@ public class Person {
     
     @Reference
     private Address address;
+    
+    @Reference
+    private List<Person> friends;
     
     public String getName() {
         return name;
@@ -46,6 +51,11 @@ public class Person {
     
     public long getId() {
         return id;
+    }
+    
+    
+    public List<Person> getFriends() {
+        return friends;
     }
     
 }

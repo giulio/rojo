@@ -1,6 +1,10 @@
 package org.rojo.repository;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.ParameterizedType;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 import org.jredis.RedisException;
 import org.jredis.ri.alphazero.JRedisClient;
@@ -24,7 +28,7 @@ public class RedisRepository implements Repository {
 
     @Override
     public <T> T get(T entity, long id) {
-     
+
         assertThatAnnotationsArePresents(entity);
 
         setIdField(entity, id); 
@@ -51,7 +55,7 @@ public class RedisRepository implements Repository {
 
     private <T> void setIdField(T entity, long id) {
         Field idField = getIdField(entity);
-        
+
         boolean idFieldAccessibility = idField.isAccessible();
         if (!idFieldAccessibility) idField.setAccessible(true);
         try {
@@ -59,16 +63,38 @@ public class RedisRepository implements Repository {
         } catch (Exception e) {
             new InvalidTypeException(e);
         }
-        
+
         if (!idFieldAccessibility) idField.setAccessible(idFieldAccessibility);
     }
 
+    @SuppressWarnings("unchecked")
     private <T> void processReference(T entity, long id, Field field) {
-        long refId = Long.parseLong(new String(read(makeLabel(entity), id, field)));
         try {
-            field.set(entity, this.get(field.getType().newInstance(), refId));
+            if (Collection.class.isAssignableFrom(field.getType())) {
+                // handling collections
+
+                if (field.getType() == List.class) {
+                    @SuppressWarnings("rawtypes")
+                    List holder = new ArrayList();
+
+                    for (byte[] ref : readSet(makeLabel(entity), id, field)) {
+                        long refId = Long.parseLong(new String(ref));
+                        holder.add(this.get(((Class)((java.lang.reflect.ParameterizedType)field.getGenericType()).getActualTypeArguments()[0]).newInstance()
+                                , refId));
+                    }
+                    field.set(entity, holder);
+
+                } else {
+                    throw new InvalidTypeException("only list supported for the time beeing ..."); //TODO
+                }
+
+            } else {
+                // single value field
+                long refId = Long.parseLong(new String(read(makeLabel(entity), id, field)));
+                field.set(entity, this.get(field.getType().newInstance(), refId));
+            }
         } catch (Exception e) {
-            new InvalidTypeException(e);
+            throw new InvalidTypeException(e);
         }
     }
 
@@ -84,6 +110,14 @@ public class RedisRepository implements Repository {
     private byte[] read(String type, long id, Field field) {
         try {
             return jrClient.get(type + ":" + id + ":" + field.getName().toLowerCase());
+        } catch (RedisException e) {
+            throw new RepositoryError(e);
+        }
+    }
+
+    private List<byte[]> readSet(String type, long id, Field field) {
+        try {
+            return jrClient.lrange(type + ":" + id + ":" + field.getName().toLowerCase(), 0, -1);
         } catch (RedisException e) {
             throw new RepositoryError(e);
         }

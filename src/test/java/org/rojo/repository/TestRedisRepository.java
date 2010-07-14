@@ -5,6 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.jredis.RedisException;
@@ -47,12 +48,23 @@ public class TestRedisRepository {
     @Test
     public void validEntityRequest() throws RedisException {
         
+        when(jrClient.get("org.rojo.domain.person:1:name")).thenReturn(new String("jennifer boyle").getBytes());
+        when(jrClient.get("org.rojo.domain.person:1:age")).thenReturn(DefaultCodec.<Integer>encode(29));
+        when(jrClient.get("org.rojo.domain.person:1:address")).thenReturn(new Long(6).toString().getBytes());
+      
+        when(jrClient.lrange("org.rojo.domain.person:1:friends",0,-1)).thenReturn(Collections.singletonList(new Long(2).toString().getBytes()));
+        
+        
         when(jrClient.get("org.rojo.domain.person:2:name")).thenReturn(new String("mikael foobar").getBytes());
         when(jrClient.get("org.rojo.domain.person:2:age")).thenReturn(DefaultCodec.<Integer>encode(33));
         when(jrClient.get("org.rojo.domain.person:2:address")).thenReturn(new Long(6).toString().getBytes());
-      
+        
+        
         when(jrClient.get("org.rojo.domain.address:6:town")).thenReturn(new String("Stockholm").getBytes());
         when(jrClient.get("org.rojo.domain.address:6:street")).thenReturn(new String("Lundagatan").getBytes());
+        
+        
+        
         
         Person person = target.get(new Person(), 2);
 
@@ -63,6 +75,13 @@ public class TestRedisRepository {
         assertEquals("Stockholm", person.getAddress().getTown());
         assertEquals("Lundagatan", person.getAddress().getStreet());
         assertEquals(6, person.getAddress().getId());
+        
+        
+        Person mate = target.get(new Person(), 1);
+        
+        assertEquals(1, mate.getFriends().size());
+        
+        assertEquals("mikael foobar", mate.getFriends().get(0).getName());
         
     }
     
