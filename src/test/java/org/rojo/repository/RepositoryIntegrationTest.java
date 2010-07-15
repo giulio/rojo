@@ -21,15 +21,15 @@ import org.rojo.repository.converters.Converters;
 import org.rojo.repository.converters.IntegerConverter;
 import org.rojo.repository.converters.StringConverter;
 
-public class TestRedisRepository {
+public class RepositoryIntegrationTest {
 
-    private RedisRepository target;
+    private Repository target;
     private JRedisClient jrClient;
     
     @Before
     public void init() throws RedisException  {
         jrClient= mock(JRedisClient.class);
-        target = new RedisRepository(jrClient, initConverters());
+        target = new Repository(new RedisFacade(jrClient, initConverters()));
     }
     
     private Converters initConverters() {
@@ -56,8 +56,6 @@ public class TestRedisRepository {
         when(jrClient.get("org.rojo.domain.address:6:street")).thenReturn(new String("Lundagatan").getBytes());
         
         
-        
-        
         Person person = target.get(new Person(), 2);
 
         assertEquals("mikael foobar", person.getName());
@@ -67,7 +65,6 @@ public class TestRedisRepository {
         assertEquals("Stockholm", person.getAddress().getTown());
         assertEquals("Lundagatan", person.getAddress().getStreet());
         assertEquals(6, person.getAddress().getId());
-        
      
         
     }
