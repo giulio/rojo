@@ -1,10 +1,11 @@
 package org.rojo.repository;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.ParameterizedType;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.jredis.RedisException;
 import org.jredis.ri.alphazero.JRedisClient;
@@ -67,27 +68,27 @@ public class RedisRepository implements Repository {
         if (!idFieldAccessibility) idField.setAccessible(idFieldAccessibility);
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({ "rawtypes", "unchecked" })
     private <T> void processReference(T entity, long id, Field field) {
         try {
             if (Collection.class.isAssignableFrom(field.getType())) {
                 // handling collections
 
+                Collection holder;
                 if (field.getType() == List.class) {
-                    @SuppressWarnings("rawtypes")
-                    List holder = new ArrayList();
-
-                    for (byte[] ref : readSet(makeLabel(entity), id, field)) {
-                        long refId = Long.parseLong(new String(ref));
-                        holder.add(this.get(((Class)((java.lang.reflect.ParameterizedType)field.getGenericType()).getActualTypeArguments()[0]).newInstance()
-                                , refId));
-                    }
-                    field.set(entity, holder);
-
+                    holder = new ArrayList();
+                } else if (field.getType() == Set.class) {
+                    holder = new HashSet();
                 } else {
-                    throw new InvalidTypeException("only list supported for the time beeing ..."); //TODO
+                    throw new InvalidTypeException("only List/Set are supported for the time beeing ..."); //TODO
                 }
 
+                for (byte[] ref : readSet(makeLabel(entity), id, field)) {
+                    long refId = Long.parseLong(new String(ref));
+                    holder.add(this.get(((Class)((java.lang.reflect.ParameterizedType)field.getGenericType()).getActualTypeArguments()[0]).newInstance()
+                            , refId));
+                }
+                field.set(entity, holder);
             } else {
                 // single value field
                 long refId = Long.parseLong(new String(read(makeLabel(entity), id, field)));
@@ -98,10 +99,30 @@ public class RedisRepository implements Repository {
         }
     }
 
+    @SuppressWarnings({ "rawtypes", "unchecked" })
     private <T> void processField(T entity, long id, Field field) {
-        byte[] value = read(makeLabel(entity), id, field);
         try {
-            field.set(entity, converter.getConverterFor(field.getType()).decode(value));
+
+            if (Collection.class.isAssignableFrom(field.getType())) {
+                Collection holder;
+                if (field.getType() == List.class) {
+                    holder = new ArrayList();
+                } else if (field.getType() == Set.class) {
+                    holder = new HashSet();
+                } else {
+                    throw new InvalidTypeException("only List/Set are supported for the time beeing ..."); //TODO
+                }
+                for (byte[] value : readSet(makeLabel(entity), id, field)) {
+                    holder.add(converter.getConverterFor((Class)((java.lang.reflect.ParameterizedType)field.getGenericType()).getActualTypeArguments()[0]).decode(value));
+                }
+                field.set(entity, holder);
+            
+            } else {
+                byte[] value = read(makeLabel(entity), id, field);
+                field.set(entity, converter.getConverterFor(field.getType()).decode(value));
+                
+            }
+
         } catch (Exception e) {
             new InvalidTypeException(e);
         }
