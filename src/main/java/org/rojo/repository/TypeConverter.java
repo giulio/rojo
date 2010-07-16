@@ -2,7 +2,7 @@ package org.rojo.repository;
 
 public interface TypeConverter {
 
-        boolean applyesFor(@SuppressWarnings("rawtypes") Class type);
+        boolean applyesFor(Class<? extends Object> type);
     
         byte[] encode(Object object);
         

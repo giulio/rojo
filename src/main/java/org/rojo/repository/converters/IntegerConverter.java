@@ -6,9 +6,8 @@ import org.rojo.repository.TypeConverter;
 
 public class IntegerConverter implements TypeConverter {
 
-    @SuppressWarnings("rawtypes") 
     @Override
-    public boolean applyesFor(Class type) {
+    public boolean applyesFor(Class<? extends Object> type) {
         return type == Integer.class || type == int.class;
     }
 

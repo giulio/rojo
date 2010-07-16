@@ -20,6 +20,7 @@ import org.rojo.exceptions.InvalidTypeException;
 import org.rojo.repository.converters.Converters;
 import org.rojo.repository.converters.IntegerConverter;
 import org.rojo.repository.converters.StringConverter;
+import org.rojo.test.TestUtils;
 
 public class RepositoryIntegrationTest {
 
@@ -29,15 +30,10 @@ public class RepositoryIntegrationTest {
     @Before
     public void init() throws RedisException  {
         jrClient= mock(JRedisClient.class);
-        target = new Repository(new RedisFacade(jrClient, initConverters()), new AnnotationValidator());
+        target = new Repository(new RedisFacade(jrClient, TestUtils.initConverters()), new AnnotationValidator());
     }
     
-    private Converters initConverters() {
-        List<TypeConverter> converters = new ArrayList<TypeConverter>(2);
-        converters.add(new IntegerConverter());
-        converters.add(new StringConverter());
-        return new Converters(converters);
-    }
+  
 
     @Test(expected = InvalidTypeException.class)
     public void invalidEntityRequest() {

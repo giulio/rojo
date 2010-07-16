@@ -7,19 +7,47 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.rojo.annotations.Id;
 import org.rojo.annotations.Reference;
 import org.rojo.annotations.Value;
 import org.rojo.exceptions.InvalidTypeException;
+import org.rojo.exceptions.RepositoryError;
+import org.rojo.repository.utils.IdUtil;
 
-public class Repository implements ReadRepository {
+public class Repository implements EntityReader, EntityWriter {
 
     private final RedisFacade redisFacade;
     private final EntityValidator validator;
 
-    public Repository(RedisFacade redisUtils, EntityValidator validator) {
-        this.redisFacade = redisUtils;
+    public Repository(RedisFacade redisFacade, EntityValidator validator) {
+        this.redisFacade = redisFacade;
         this.validator = validator;
+    }
+
+
+    @Override
+    public long write(Object entity) {
+        validator.validateEntity(entity.getClass());
+        long id = IdUtil.readId(entity);
+        if (id <= 0) {
+            // TODO generate and set id
+        }
+        for (Field field : entity.getClass().getDeclaredFields()) {
+            if (field.isAnnotationPresent(Value.class)) {
+                if (Collection.class.isAssignableFrom(field.getType())) {
+                    try {
+                        @SuppressWarnings("unchecked")
+                        Collection<? extends Object> collection = (Collection<? extends Object>)field.get(entity);
+                        redisFacade.writeList(entity.getClass(), collection, id, field);
+                    } catch (Exception e) {
+                        throw new RepositoryError("error writing " + entity.getClass() + " - " + id + " - " + field.getName(), e);
+                    }
+                } else {
+                    redisFacade.write(entity, id, field);
+                }
+            }
+        }
+
+        return id;
     }
 
     @Override
@@ -50,7 +78,7 @@ public class Repository implements ReadRepository {
     }
 
     private <T> void setIdField(T entity, long id) {
-        Field idField = getIdField(entity);
+        Field idField = IdUtil.getIdField(entity.getClass());
 
         boolean idFieldAccessibility = idField.isAccessible();
         if (!idFieldAccessibility) idField.setAccessible(true);
@@ -68,12 +96,12 @@ public class Repository implements ReadRepository {
         try {
             if (Collection.class.isAssignableFrom(field.getType())) {
                 Collection holder = initCollectionHolder(field);
-            
+
                 for (long referredId : redisFacade.getReferredIds(entity, id, field)) {
                     holder.add(this.get(((Class)((java.lang.reflect.ParameterizedType)field.getGenericType()).getActualTypeArguments()[0]).newInstance()
                             , referredId));
                 }
-           
+
                 field.set(entity, holder);
             } else {
                 field.set(entity, this.get(field.getType().newInstance(), redisFacade.getReferredId(entity, id, field)));
@@ -83,7 +111,7 @@ public class Repository implements ReadRepository {
         }
     }
 
-  
+
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
     private <T> void processField(T entity, long id, Field field) {
@@ -99,15 +127,8 @@ public class Repository implements ReadRepository {
             new InvalidTypeException(e);
         }
     }
-   
-    private Field getIdField(Object type) {
-        for (Field field : type.getClass().getDeclaredFields()) {
-            if (field.getAnnotation(Id.class) != null)
-                return field;
-        }
-        throw new InvalidTypeException("missing @Id field!");
-    }
-    
+
+
     @SuppressWarnings("rawtypes")
     private Collection initCollectionHolder(Field field) {
         if (field.getType() == List.class || field.getType() == Collection.class) {

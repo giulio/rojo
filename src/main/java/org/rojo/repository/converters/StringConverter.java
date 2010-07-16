@@ -4,9 +4,8 @@ import org.rojo.repository.TypeConverter;
 
 public class StringConverter implements TypeConverter {
 
-    @SuppressWarnings("rawtypes")
     @Override
-    public boolean applyesFor(Class type) {
+    public boolean applyesFor(Class<? extends Object> type) {
         return type == String.class;
     }
 

@@ -15,5 +15,9 @@ public class RojoException extends RuntimeException {
         super(msg);
     }
 
+    public RojoException(String msg, Exception e) {
+        super(msg, e);
+    }
+
     
 }

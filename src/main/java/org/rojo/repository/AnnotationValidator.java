@@ -11,13 +11,12 @@ import org.rojo.annotations.Id;
 import org.rojo.annotations.Value;
 import org.rojo.exceptions.InvalidTypeException;
 
-@SuppressWarnings({ "unchecked", "rawtypes" })
 public class AnnotationValidator implements EntityValidator {
 
-    private static List<Class> validatedEntityCache = new ArrayList<Class>();
+    private static List<Class<? extends Object>> validatedEntityCache = new ArrayList<Class<? extends Object>>();
 
     @Override
-    public void validateEntity(Class entityClass) {
+    public void validateEntity(Class<? extends Object> entityClass) {
         if (!validatedEntityCache.contains(entityClass)) {
             verifyEntityAnnotation(entityClass);
             verifyIdAnnotationPresent(entityClass);
@@ -26,7 +25,7 @@ public class AnnotationValidator implements EntityValidator {
         }
     }
 
-    private void verifyCollectionsConstraints(Class entityClass) {
+    private void verifyCollectionsConstraints(Class<? extends Object> entityClass) {
         for (Field field : entityClass.getDeclaredFields()) {
             if (field.getAnnotation(Value.class) != null && Collection.class.isAssignableFrom(field.getType())) {
                 if (!(field.getType() == Set.class || field.getType() == List.class || field.getType() == Collection.class)) {
@@ -36,7 +35,7 @@ public class AnnotationValidator implements EntityValidator {
         }
     }
 
-    private void verifyIdAnnotationPresent(Class entityClass) {
+    private void verifyIdAnnotationPresent(Class<? extends Object> entityClass) {
         Field idField = null;
         for (Field field : entityClass.getDeclaredFields()) {
             if (field.getAnnotation(Id.class) != null) idField = field;
@@ -49,13 +48,13 @@ public class AnnotationValidator implements EntityValidator {
         }
     }
 
-    private void verifyEntityAnnotation(Class entityClass) {
+    private void verifyEntityAnnotation(Class<? extends Object> entityClass) {
         if (entityClass.getAnnotation(Entity.class) == null) {
             error(entityClass, "missing @Entity annotation");
         }
     }
 
-    private void error(Class entityClass, String msg) {
+    private void error(Class<? extends Object> entityClass, String msg) {
         throw new InvalidTypeException(entityClass.getCanonicalName() + ": " + msg);
     }
 

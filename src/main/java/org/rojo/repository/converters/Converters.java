@@ -14,7 +14,7 @@ public class Converters {
         this.converters = converters;
     }
 
-    public TypeConverter getConverterFor(@SuppressWarnings("rawtypes") Class type) {
+    public TypeConverter getConverterFor(Class<? extends Object> type) {
         for (TypeConverter converter : converters) {
             if (converter.applyesFor(type)) {
                 return converter;

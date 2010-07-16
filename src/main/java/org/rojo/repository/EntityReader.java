@@ -1,6 +1,6 @@
 package org.rojo.repository;
 
-public interface ReadRepository {
+public interface EntityReader {
 
     public <T> T get(T entity, long id);
 
