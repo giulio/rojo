@@ -7,7 +7,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.rojo.annotations.Entity;
 import org.rojo.annotations.Id;
 import org.rojo.annotations.Reference;
 import org.rojo.annotations.Value;
@@ -15,16 +14,18 @@ import org.rojo.exceptions.InvalidTypeException;
 
 public class Repository implements ReadRepository {
 
-    private RedisFacade redisFacade;
+    private final RedisFacade redisFacade;
+    private final EntityValidator validator;
 
-    public Repository(RedisFacade redisUtils) {
+    public Repository(RedisFacade redisUtils, EntityValidator validator) {
         this.redisFacade = redisUtils;
+        this.validator = validator;
     }
 
     @Override
     public <T> T get(T entity, long id) {
 
-        assertThatAnnotationsArePresents(entity);
+        validator.validateEntity(entity.getClass());
 
         setIdField(entity, id); 
 
@@ -68,7 +69,6 @@ public class Repository implements ReadRepository {
             if (Collection.class.isAssignableFrom(field.getType())) {
                 Collection holder = initCollectionHolder(field);
             
-
                 for (long referredId : redisFacade.getReferredIds(entity, id, field)) {
                     holder.add(this.get(((Class)((java.lang.reflect.ParameterizedType)field.getGenericType()).getActualTypeArguments()[0]).newInstance()
                             , referredId));
@@ -100,35 +100,22 @@ public class Repository implements ReadRepository {
         }
     }
    
-    private <T> void assertThatAnnotationsArePresents(Object type) {
-        if (type.getClass().getAnnotation(Entity.class) == null) {
-            throw new InvalidTypeException();
-        }
-        Field idField = getIdField(type);
-        if (idField == null) {
-            throw new InvalidTypeException("missing @Id field");
-        }
-        if (!(idField.getType() == long.class || idField.getType() == Long.class)) {
-            throw new InvalidTypeException("invalid @Id field type! accepted types are {long, Long}");
-        }
-    }
-
     private Field getIdField(Object type) {
         for (Field field : type.getClass().getDeclaredFields()) {
             if (field.getAnnotation(Id.class) != null)
                 return field;
         }
-        return null;
+        throw new InvalidTypeException("missing @Id field!");
     }
     
     @SuppressWarnings("rawtypes")
     private Collection initCollectionHolder(Field field) {
-        if (field.getType() == List.class) {
+        if (field.getType() == List.class || field.getType() == Collection.class) {
             return new ArrayList();
         } else if (field.getType() == Set.class) {
             return new HashSet();
         } else {
-            throw new InvalidTypeException("only List/Set are supported for the time beeing ..."); //TODO
+            throw new InvalidTypeException("unsupported Collection subtype"); 
         }
     }
 

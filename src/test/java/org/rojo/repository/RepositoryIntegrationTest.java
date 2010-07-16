@@ -29,7 +29,7 @@ public class RepositoryIntegrationTest {
     @Before
     public void init() throws RedisException  {
         jrClient= mock(JRedisClient.class);
-        target = new Repository(new RedisFacade(jrClient, initConverters()));
+        target = new Repository(new RedisFacade(jrClient, initConverters()), new AnnotationValidator());
     }
     
     private Converters initConverters() {
