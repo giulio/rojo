@@ -3,6 +3,9 @@ package org.rojo.repository;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import java.util.Arrays;
+import java.util.List;
+
 import org.jredis.RedisException;
 import org.jredis.ri.alphazero.JRedisClient;
 import org.junit.Before;
@@ -26,7 +29,7 @@ public class EntityWriterTest {
     }
     
     @Test
-    public void WriteSimpleValueEntity() throws RedisException {
+    public void writeSimpleValueEntity() throws RedisException {
         SimpleValueEntity entity = new SimpleValueEntity();
         entity.id = 2;
         entity.value = 999;
@@ -34,16 +37,34 @@ public class EntityWriterTest {
         verify(jrClient).set("org.rojo.repository.entitywritertest.simplevalueentity:2:value", new IntegerConverter().encode(entity.value));
     }
     
-    
-    @Entity
-    public class SimpleValueEntity {        
-        @Id
-        public long id;
+    @Test
+    public void writeCollectionOfValuesEntity() throws RedisException {
         
-        @Value
-        public int value;      
+        CollectionOfValuesEntity entity = new CollectionOfValuesEntity();
+        entity.id = 2;
+        entity.values = Arrays.asList(new Integer[]{1, 2 ,3, 4, 5});
+        
+        target.write(entity);
+        
+        verify(jrClient).lpush("org.rojo.repository.entitywritertest.collectionofvaluesentity:2:values", new IntegerConverter().encode(1));
+        verify(jrClient).lpush("org.rojo.repository.entitywritertest.collectionofvaluesentity:2:values", new IntegerConverter().encode(2));
+        verify(jrClient).lpush("org.rojo.repository.entitywritertest.collectionofvaluesentity:2:values", new IntegerConverter().encode(3));
+        verify(jrClient).lpush("org.rojo.repository.entitywritertest.collectionofvaluesentity:2:values", new IntegerConverter().encode(4));
+        verify(jrClient).lpush("org.rojo.repository.entitywritertest.collectionofvaluesentity:2:values", new IntegerConverter().encode(5));
+
+
     }
     
+    @Entity public class SimpleValueEntity {        
+        @Id public long id;
+        @Value public int value;      
+    }
+    
+    
+    @Entity public class CollectionOfValuesEntity {
+        @Id public long id;
+        @Value public List<Integer> values;
+    }
     
 
 }

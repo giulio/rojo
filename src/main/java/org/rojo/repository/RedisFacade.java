@@ -85,7 +85,7 @@ public class RedisFacade {
             Collection<? extends Object> collection, long id, Field field) {
         for (Object value : collection) {
             try {
-                jrClient.lpush(makeLabel(entity, id, field) + ":" + id + ":" + field.getName(), converters.getConverterFor(value.getClass()).encode(value));
+                jrClient.lpush(makeLabel(entity, id, field), converters.getConverterFor(value.getClass()).encode(value));
             } catch (RedisException e) {
                 throw new RepositoryError("write error " + entity + " - " + id + " - " + field.getName(), e);
             }
