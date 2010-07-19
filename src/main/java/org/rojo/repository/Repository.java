@@ -37,12 +37,35 @@ public class Repository implements EntityReader, EntityWriter {
                     try {
                         @SuppressWarnings("unchecked")
                         Collection<? extends Object> collection = (Collection<? extends Object>)field.get(entity);
-                        redisFacade.writeList(entity.getClass(), collection, id, field);
+                        redisFacade.writeCollection(entity, collection, id, field);
                     } catch (Exception e) {
                         throw new RepositoryError("error writing " + entity.getClass() + " - " + id + " - " + field.getName(), e);
                     }
                 } else {
                     redisFacade.write(entity, id, field);
+                }
+            }
+            if (field.isAnnotationPresent(Reference.class)) {
+                if (Collection.class.isAssignableFrom(field.getType())) {
+                    try {
+                        @SuppressWarnings("unchecked")
+                        Collection<? extends Object> referredEntities = (Collection<? extends Object>)field.get(entity);
+                        if (referredEntities.size() != 0) {
+                            List<Long> ids = new ArrayList<Long>(referredEntities.size());
+                            for (Object referredEntity : referredEntities) {
+                                ids.add(this.write(referredEntity));
+                            }
+                            redisFacade.writeReferenceCollection(entity, field, id, ids);
+                        }
+                    } catch (Exception e) {
+                        throw new RepositoryError("error writing " + entity.getClass() + " - " + id + " - " + field.getName(), e);
+                    }
+                } else {
+                    try {
+                        redisFacade.writeReference(entity, field, id, this.write(field.get(entity)));
+                    } catch (Exception e) {
+                        throw new RepositoryError("error writing " + entity.getClass() + " - " + id + " - " + field.getName(), e);
+                    }
                 }
             }
         }

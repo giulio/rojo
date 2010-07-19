@@ -9,6 +9,7 @@ import org.jredis.RedisException;
 import org.jredis.ri.alphazero.JRedisClient;
 import org.rojo.exceptions.RepositoryError;
 import org.rojo.repository.converters.Converters;
+import org.rojo.repository.utils.IdUtil;
 
 public class RedisFacade {
 
@@ -23,7 +24,7 @@ public class RedisFacade {
 
     public <T> long getReferredId(T type, long id, Field field) {
         try {
-            return decodeId(jrClient.get(makeLabel(type.getClass(), id, field)));
+            return IdUtil.decodeId(jrClient.get(makeLabel(type.getClass(), id, field)));
         } catch (RedisException e) {
             throw new RepositoryError(e);
         }
@@ -38,7 +39,7 @@ public class RedisFacade {
         }
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({ "unchecked", "rawtypes" })
     public <T> void readValues(T type, long id, Field field, Collection<T> destination) {
         try {
             List<byte[]> values = jrClient.lrange(makeLabel(type.getClass(), id, field), 0, -1);
@@ -56,7 +57,7 @@ public class RedisFacade {
             List<byte[]> refs = jrClient.lrange(makeLabel(type.getClass(), id, field), 0, -1);
             List<Long> ids = new ArrayList<Long>(refs.size());
             for (byte[] value : refs) {
-                ids.add(decodeId(value));
+                ids.add(IdUtil.decodeId(value));
             }
             return ids;
         } catch (RedisException e) {
@@ -67,11 +68,7 @@ public class RedisFacade {
     private String makeLabel(Class<? extends Object> entity, long id, Field field) {
         return entity.getCanonicalName().toLowerCase() + ":" + id + ":" + field.getName().toLowerCase();
     }
-
-    private long decodeId(byte[] bytes) {
-        return Long.parseLong(new String(bytes));
-    }
-
+    
     public void write(Object entity, long id, Field field) {
         try {
             Object value = field.get(entity);
@@ -81,16 +78,35 @@ public class RedisFacade {
         }
     }
 
-    public void writeList(Class<? extends Object> entity,
+    public void writeCollection(Object entity,
             Collection<? extends Object> collection, long id, Field field) {
         for (Object value : collection) {
             try {
-                jrClient.lpush(makeLabel(entity, id, field), converters.getConverterFor(value.getClass()).encode(value));
+                jrClient.lpush(makeLabel(entity.getClass(), id, field), converters.getConverterFor(value.getClass()).encode(value));
             } catch (RedisException e) {
                 throw new RepositoryError("write error " + entity + " - " + id + " - " + field.getName(), e);
             }
         }
         
+    }
+
+    public void writeReference(Object entity, Field field, long id, long referencedId) {
+        try {
+            jrClient.set(makeLabel(entity.getClass(), id, field), IdUtil.encodeId(referencedId));
+        } catch (RedisException e) {
+            throw new RepositoryError("write error " + entity + " - " + id + " - " + field.getName(), e);
+        }
+    }
+
+    public void writeReferenceCollection(Object entity, Field field, long id,
+            List<Long> referredIds) {
+        try {
+            for (Long referredId : referredIds) {
+                jrClient.lpush(makeLabel(entity.getClass(), id, field), IdUtil.encodeId(referredId));          
+            }
+        } catch (RedisException e) {
+            throw new RepositoryError("write error " + entity + " - " + id + " - " + field.getName(), e);
+        }
     }
 
 }

@@ -21,7 +21,14 @@ public class IdUtil {
                 return field;
         }
         throw new InvalidTypeException("missing @Id field!");
-    }
+    }  
     
+    public static long decodeId(byte[] bytes) {
+        return Long.parseLong(new String(bytes));
+    }
+
+    public static byte[] encodeId(long id) {
+        return new Long(id).toString().getBytes();
+    }
     
 }

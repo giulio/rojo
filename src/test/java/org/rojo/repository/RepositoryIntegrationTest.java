@@ -17,10 +17,8 @@ import org.junit.Test;
 import org.rojo.domain.Person;
 import org.rojo.domain.SomeStrings;
 import org.rojo.exceptions.InvalidTypeException;
-import org.rojo.repository.converters.Converters;
-import org.rojo.repository.converters.IntegerConverter;
-import org.rojo.repository.converters.StringConverter;
-import org.rojo.test.TestUtils;
+import org.rojo.repository.utils.IdUtil;
+import org.rojo.test.Util;
 
 public class RepositoryIntegrationTest {
 
@@ -30,7 +28,7 @@ public class RepositoryIntegrationTest {
     @Before
     public void init() throws RedisException  {
         jrClient= mock(JRedisClient.class);
-        target = new Repository(new RedisFacade(jrClient, TestUtils.initConverters()), new AnnotationValidator());
+        target = new Repository(new RedisFacade(jrClient, Util.initConverters()), new AnnotationValidator());
     }
     
   
@@ -45,7 +43,7 @@ public class RepositoryIntegrationTest {
         
         when(jrClient.get("org.rojo.domain.person:2:name")).thenReturn(new String("mikael foobar").getBytes());
         when(jrClient.get("org.rojo.domain.person:2:age")).thenReturn(DefaultCodec.<Integer>encode(33));
-        when(jrClient.get("org.rojo.domain.person:2:address")).thenReturn(new Long(6).toString().getBytes());
+        when(jrClient.get("org.rojo.domain.person:2:address")).thenReturn(IdUtil.encodeId(6));
         
         
         when(jrClient.get("org.rojo.domain.address:6:town")).thenReturn(new String("Stockholm").getBytes());
@@ -89,14 +87,14 @@ public class RepositoryIntegrationTest {
         
         when(jrClient.get("org.rojo.domain.person:1:name")).thenReturn(new String("jennifer boyle").getBytes());
         when(jrClient.get("org.rojo.domain.person:1:age")).thenReturn(DefaultCodec.<Integer>encode(29));
-        when(jrClient.get("org.rojo.domain.person:1:address")).thenReturn(new Long(6).toString().getBytes());
+        when(jrClient.get("org.rojo.domain.person:1:address")).thenReturn(IdUtil.encodeId(6));
       
-        when(jrClient.lrange("org.rojo.domain.person:1:friends",0,-1)).thenReturn(Collections.singletonList(new Long(2).toString().getBytes()));
+        when(jrClient.lrange("org.rojo.domain.person:1:friends",0,-1)).thenReturn(Collections.singletonList(IdUtil.encodeId(2)));
         
         
         when(jrClient.get("org.rojo.domain.person:2:name")).thenReturn(new String("mikael foobar").getBytes());
         when(jrClient.get("org.rojo.domain.person:2:age")).thenReturn(DefaultCodec.<Integer>encode(33));
-        when(jrClient.get("org.rojo.domain.person:2:address")).thenReturn(new Long(6).toString().getBytes());
+        when(jrClient.get("org.rojo.domain.person:2:address")).thenReturn(IdUtil.encodeId(6));
         
         
         when(jrClient.get("org.rojo.domain.address:6:town")).thenReturn(new String("Stockholm").getBytes());

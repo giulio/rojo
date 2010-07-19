@@ -8,7 +8,7 @@ import org.rojo.repository.converters.Converters;
 import org.rojo.repository.converters.IntegerConverter;
 import org.rojo.repository.converters.StringConverter;
 
-public class TestUtils {
+public class Util {
     
     public static Converters initConverters() {
         List<TypeConverter> converters = new ArrayList<TypeConverter>(2);
