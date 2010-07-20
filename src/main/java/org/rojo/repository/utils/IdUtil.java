@@ -9,7 +9,17 @@ public class IdUtil {
 
     public static long readId(Object entity) {
         try {
-            return getIdField(entity.getClass()).getLong(entity);
+            long id = 0;
+            Field idField = getIdField(entity.getClass());
+            
+            boolean origFieldAccessibility = idField.isAccessible();
+            if (!origFieldAccessibility) idField.setAccessible(true);
+            
+            id =  idField.getLong(entity);
+            if (!origFieldAccessibility) idField.setAccessible(origFieldAccessibility); 
+
+            return id;
+            
         } catch (Exception e) {
             throw new InvalidTypeException(e);
         }

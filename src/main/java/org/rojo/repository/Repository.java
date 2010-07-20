@@ -23,53 +23,55 @@ public class Repository implements EntityReader, EntityWriter {
         this.validator = validator;
     }
 
-
     @Override
     public long write(Object entity) {
         validator.validateEntity(entity.getClass());
         long id = IdUtil.readId(entity);
         if (id <= 0) {
-            // TODO generate and set id
+            id = redisFacade.nextId(entity.getClass());
+            setIdField(entity, id);
         }
         for (Field field : entity.getClass().getDeclaredFields()) {
-            if (field.isAnnotationPresent(Value.class)) {
-                if (Collection.class.isAssignableFrom(field.getType())) {
-                    try {
-                        @SuppressWarnings("unchecked")
-                        Collection<? extends Object> collection = (Collection<? extends Object>)field.get(entity);
-                        redisFacade.writeCollection(entity, collection, id, field);
-                    } catch (Exception e) {
-                        throw new RepositoryError("error writing " + entity.getClass() + " - " + id + " - " + field.getName(), e);
-                    }
-                } else {
-                    redisFacade.write(entity, id, field);
-                }
-            }
-            if (field.isAnnotationPresent(Reference.class)) {
-                if (Collection.class.isAssignableFrom(field.getType())) {
-                    try {
-                        @SuppressWarnings("unchecked")
-                        Collection<? extends Object> referredEntities = (Collection<? extends Object>)field.get(entity);
-                        if (referredEntities.size() != 0) {
-                            List<Long> ids = new ArrayList<Long>(referredEntities.size());
-                            for (Object referredEntity : referredEntities) {
-                                ids.add(this.write(referredEntity));
-                            }
-                            redisFacade.writeReferenceCollection(entity, field, id, ids);
-                        }
-                    } catch (Exception e) {
-                        throw new RepositoryError("error writing " + entity.getClass() + " - " + id + " - " + field.getName(), e);
-                    }
-                } else {
-                    try {
-                        redisFacade.writeReference(entity, field, id, this.write(field.get(entity)));
-                    } catch (Exception e) {
-                        throw new RepositoryError("error writing " + entity.getClass() + " - " + id + " - " + field.getName(), e);
-                    }
-                }
-            }
-        }
+            // set accessibility for private fields
+            boolean origFieldAccessibility = field.isAccessible();
+            if (!origFieldAccessibility) field.setAccessible(true);
+            try {
+                if (field.get(entity) != null) {
 
+                    if (field.isAnnotationPresent(Value.class)) {
+                        if (Collection.class.isAssignableFrom(field.getType())) {
+                            @SuppressWarnings("unchecked")
+                            Collection<? extends Object> collection = (Collection<? extends Object>)field.get(entity);
+                            redisFacade.writeCollection(entity, collection, id, field);
+                        } else {
+                            redisFacade.write(entity, id, field);
+                        }
+                    }
+                    if (field.isAnnotationPresent(Reference.class)) {
+                        if (Collection.class.isAssignableFrom(field.getType())) {
+                            @SuppressWarnings("unchecked")
+                            Collection<? extends Object> referredEntities = (Collection<? extends Object>)field.get(entity);
+                            if (referredEntities.size() != 0) {
+                                List<Long> ids = new ArrayList<Long>(referredEntities.size());
+                                for (Object referredEntity : referredEntities) {
+                                    ids.add(this.write(referredEntity));
+                                }
+                                redisFacade.writeReferenceCollection(entity, field, id, ids);
+                            }
+
+                        } else {
+                            redisFacade.writeReference(entity, field, id, this.write(field.get(entity)));
+                        }
+                    }
+                }
+
+            } catch (Exception e) {
+                throw new RepositoryError("error writing " + entity.getClass() + " - " + id + " - " + field.getName(), e);
+            } finally {
+                if (!origFieldAccessibility) field.setAccessible(origFieldAccessibility); 
+            }
+
+        }
         return id;
     }
 
@@ -82,19 +84,23 @@ public class Repository implements EntityReader, EntityWriter {
 
         for (Field field : entity.getClass().getDeclaredFields()) {
             if (field.isAnnotationPresent(Value.class) || field.isAnnotationPresent(Reference.class)) {
+                if (redisFacade.hasKey(entity.getClass(), id, field)) {
 
-                // set accessibility for private fields
-                boolean origFieldAccessibility = field.isAccessible();
-                if (!origFieldAccessibility) field.setAccessible(true);
+                    // set accessibility for private fields
+                    boolean origFieldAccessibility = field.isAccessible();
+                    if (!origFieldAccessibility) field.setAccessible(true);
 
-                if (field.isAnnotationPresent(Value.class)) {
-                    processField(entity, id, field); 
-                } else if (field.isAnnotationPresent(Reference.class)) {
-                    processReference(entity, id, field);
+
+                    if (field.isAnnotationPresent(Value.class)) {
+                        processField(entity, id, field); 
+                    } else if (field.isAnnotationPresent(Reference.class)) {
+                        processReference(entity, id, field);
+                    }
+
+                    // reset accessibility
+                    if (!origFieldAccessibility) field.setAccessible(origFieldAccessibility); 
                 }
 
-                // reset accessibility
-                if (!origFieldAccessibility) field.setAccessible(origFieldAccessibility); 
             }
         }
         return entity;
@@ -134,8 +140,6 @@ public class Repository implements EntityReader, EntityWriter {
         }
     }
 
-
-
     @SuppressWarnings({ "rawtypes", "unchecked" })
     private <T> void processField(T entity, long id, Field field) {
         try {
@@ -151,7 +155,6 @@ public class Repository implements EntityReader, EntityWriter {
         }
     }
 
-
     @SuppressWarnings("rawtypes")
     private Collection initCollectionHolder(Field field) {
         if (field.getType() == List.class || field.getType() == Collection.class) {
@@ -162,6 +165,5 @@ public class Repository implements EntityReader, EntityWriter {
             throw new InvalidTypeException("unsupported Collection subtype"); 
         }
     }
-
 
 }

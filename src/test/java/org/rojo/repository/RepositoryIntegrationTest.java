@@ -17,6 +17,7 @@ import org.junit.Test;
 import org.rojo.domain.Person;
 import org.rojo.domain.SomeStrings;
 import org.rojo.exceptions.InvalidTypeException;
+import org.rojo.repository.converters.IntegerConverter;
 import org.rojo.repository.utils.IdUtil;
 import org.rojo.test.Util;
 
@@ -40,13 +41,20 @@ public class RepositoryIntegrationTest {
     
     @Test
     public void validEntityRequest() throws RedisException {
-        
+
+        when(jrClient.exists("org.rojo.domain.person:2:name")).thenReturn(true);
         when(jrClient.get("org.rojo.domain.person:2:name")).thenReturn(new String("mikael foobar").getBytes());
-        when(jrClient.get("org.rojo.domain.person:2:age")).thenReturn(DefaultCodec.<Integer>encode(33));
+
+        when(jrClient.exists("org.rojo.domain.person:2:age")).thenReturn(true);
+        when(jrClient.get("org.rojo.domain.person:2:age")).thenReturn(new IntegerConverter().encode(33));
+        
+        when(jrClient.exists("org.rojo.domain.person:2:address")).thenReturn(true);
         when(jrClient.get("org.rojo.domain.person:2:address")).thenReturn(IdUtil.encodeId(6));
         
-        
+        when(jrClient.exists("org.rojo.domain.address:6:town")).thenReturn(true);
         when(jrClient.get("org.rojo.domain.address:6:town")).thenReturn(new String("Stockholm").getBytes());
+        
+        when(jrClient.exists("org.rojo.domain.address:6:street")).thenReturn(true);
         when(jrClient.get("org.rojo.domain.address:6:street")).thenReturn(new String("Lundagatan").getBytes());
         
         
@@ -71,6 +79,7 @@ public class RepositoryIntegrationTest {
         listOfString.add(new String("dos").getBytes());
         listOfString.add(new String("tre").getBytes());
         
+        when(jrClient.exists("org.rojo.domain.somestrings:3:strings")).thenReturn(true);
         when(jrClient.lrange("org.rojo.domain.somestrings:3:strings", 0, -1)).thenReturn(listOfString);
         
         
@@ -84,20 +93,32 @@ public class RepositoryIntegrationTest {
     
     @Test
     public void referencesInCollections() throws RedisException  {
-        
+
+        when(jrClient.exists("org.rojo.domain.person:1:name")).thenReturn(true);
         when(jrClient.get("org.rojo.domain.person:1:name")).thenReturn(new String("jennifer boyle").getBytes());
-        when(jrClient.get("org.rojo.domain.person:1:age")).thenReturn(DefaultCodec.<Integer>encode(29));
+
+        when(jrClient.exists("org.rojo.domain.person:1:age")).thenReturn(true);
+        when(jrClient.get("org.rojo.domain.person:1:age")).thenReturn(new IntegerConverter().encode(29));
+
+        when(jrClient.exists("org.rojo.domain.person:1:address")).thenReturn(true);
         when(jrClient.get("org.rojo.domain.person:1:address")).thenReturn(IdUtil.encodeId(6));
       
+        when(jrClient.exists("org.rojo.domain.person:1:friends")).thenReturn(true);
         when(jrClient.lrange("org.rojo.domain.person:1:friends",0,-1)).thenReturn(Collections.singletonList(IdUtil.encodeId(2)));
         
-        
+        when(jrClient.exists("org.rojo.domain.person:2:name")).thenReturn(true);
         when(jrClient.get("org.rojo.domain.person:2:name")).thenReturn(new String("mikael foobar").getBytes());
-        when(jrClient.get("org.rojo.domain.person:2:age")).thenReturn(DefaultCodec.<Integer>encode(33));
+        
+        when(jrClient.exists("org.rojo.domain.person:2:age")).thenReturn(true);
+        when(jrClient.get("org.rojo.domain.person:2:age")).thenReturn(new IntegerConverter().encode(33));
+        
+        when(jrClient.exists("org.rojo.domain.person:2:address")).thenReturn(true);
         when(jrClient.get("org.rojo.domain.person:2:address")).thenReturn(IdUtil.encodeId(6));
         
-        
+        when(jrClient.exists("org.rojo.domain.address:6:town")).thenReturn(true);
         when(jrClient.get("org.rojo.domain.address:6:town")).thenReturn(new String("Stockholm").getBytes());
+
+        when(jrClient.exists("org.rojo.domain.address:6:street")).thenReturn(true);
         when(jrClient.get("org.rojo.domain.address:6:street")).thenReturn(new String("Lundagatan").getBytes());
         
         

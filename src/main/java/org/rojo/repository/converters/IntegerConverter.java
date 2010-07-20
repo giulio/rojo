@@ -1,7 +1,5 @@
 package org.rojo.repository.converters;
 
-import org.jredis.ri.alphazero.support.DefaultCodec;
-
 import org.rojo.repository.TypeConverter;
 
 public class IntegerConverter implements TypeConverter {
@@ -13,12 +11,12 @@ public class IntegerConverter implements TypeConverter {
 
     @Override
     public byte[] encode(Object object) {
-        return DefaultCodec.<Integer>encode((Integer)object);     
+        return object.toString().getBytes();
     }
 
     @Override
     public Object decode(byte[] bytes) {
-        return DefaultCodec.<Integer>decode(bytes);
+        return Integer.parseInt(new String(bytes));
     }
     
 }
