@@ -1,8 +1,0 @@
-ROJO - Java ORM for Redis 
-
-
-This project is in (and most probably will never leave.. ) an embryonal stage. 
-The idea is to build a simple Java annotatin driven ORM based on Redis (http://github.com/antirez/redis) key-value store. 
-
-
-
