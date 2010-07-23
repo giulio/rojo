@@ -10,27 +10,31 @@ import java.util.Set;
 import org.rojo.annotations.Reference;
 import org.rojo.annotations.Value;
 import org.rojo.exceptions.InvalidTypeException;
+import org.rojo.exceptions.MissingEntity;
 import org.rojo.exceptions.RepositoryError;
 import org.rojo.repository.utils.IdUtil;
 
 public class Repository implements EntityReader, EntityWriter {
 
-    private final RedisFacade redisFacade;
+    private final KeyValueStore store;
     private final EntityValidator validator;
 
-    public Repository(RedisFacade redisFacade, EntityValidator validator) {
-        this.redisFacade = redisFacade;
+    public Repository(KeyValueStore store, EntityValidator validator) {
+        this.store = store;
         this.validator = validator;
     }
 
     @Override
     public long write(Object entity) {
         validator.validateEntity(entity.getClass());
+       
         long id = IdUtil.readId(entity);
         if (id <= 0) {
-            id = redisFacade.nextId(entity.getClass());
+            id = store.nextId(entity.getClass());
             setIdField(entity, id);
         }
+        store.writeId(entity, id);
+        
         for (Field field : entity.getClass().getDeclaredFields()) {
             // set accessibility for private fields
             boolean origFieldAccessibility = field.isAccessible();
@@ -42,9 +46,9 @@ public class Repository implements EntityReader, EntityWriter {
                         if (Collection.class.isAssignableFrom(field.getType())) {
                             @SuppressWarnings("unchecked")
                             Collection<? extends Object> collection = (Collection<? extends Object>)field.get(entity);
-                            redisFacade.writeCollection(entity, collection, id, field);
+                            store.writeCollection(entity, collection, id, field);
                         } else {
-                            redisFacade.write(entity, id, field);
+                            store.write(entity, id, field);
                         }
                     }
                     if (field.isAnnotationPresent(Reference.class)) {
@@ -56,11 +60,11 @@ public class Repository implements EntityReader, EntityWriter {
                                 for (Object referredEntity : referredEntities) {
                                     ids.add(this.write(referredEntity));
                                 }
-                                redisFacade.writeReferenceCollection(entity, field, id, ids);
+                                store.writeReferenceCollection(entity, field, id, ids);
                             }
 
                         } else {
-                            redisFacade.writeReference(entity, field, id, this.write(field.get(entity)));
+                            store.writeReference(entity, field, id, this.write(field.get(entity)));
                         }
                     }
                 }
@@ -79,12 +83,15 @@ public class Repository implements EntityReader, EntityWriter {
     public <T> T get(T entity, long id) {
 
         validator.validateEntity(entity.getClass());
+        if (!store.exists(entity, id)) {
+            throw new MissingEntity(entity.getClass(), id);
+        }
 
         setIdField(entity, id); 
 
         for (Field field : entity.getClass().getDeclaredFields()) {
             if (field.isAnnotationPresent(Value.class) || field.isAnnotationPresent(Reference.class)) {
-                if (redisFacade.hasKey(entity.getClass(), id, field)) {
+                if (store.hasKey(entity.getClass(), id, field)) {
 
                     // set accessibility for private fields
                     boolean origFieldAccessibility = field.isAccessible();
@@ -104,6 +111,21 @@ public class Repository implements EntityReader, EntityWriter {
             }
         }
         return entity;
+    }
+    
+    
+    public void delete(Object entity) {
+        validator.validateEntity(entity.getClass());
+        long id = IdUtil.readId(entity);
+        if (id <= 0) {
+            throw new RepositoryError(entity.getClass() + ", invalid id: " + id);
+        }
+        store.removeId(entity, id);
+        for (Field field : entity.getClass().getDeclaredFields()) {
+            if ((field.isAnnotationPresent(Value.class) || field.isAnnotationPresent(Reference.class)) && store.hasKey(entity.getClass(), id, field)) {
+                store.delete(entity, id, field);
+            }
+        }
     }
 
     private <T> void setIdField(T entity, long id) {
@@ -126,14 +148,14 @@ public class Repository implements EntityReader, EntityWriter {
             if (Collection.class.isAssignableFrom(field.getType())) {
                 Collection holder = initCollectionHolder(field);
 
-                for (long referredId : redisFacade.getReferredIds(entity, id, field)) {
+                for (long referredId : store.getReferredIds(entity, id, field)) {
                     holder.add(this.get(((Class)((java.lang.reflect.ParameterizedType)field.getGenericType()).getActualTypeArguments()[0]).newInstance()
                             , referredId));
                 }
 
                 field.set(entity, holder);
             } else {
-                field.set(entity, this.get(field.getType().newInstance(), redisFacade.getReferredId(entity, id, field)));
+                field.set(entity, this.get(field.getType().newInstance(), store.getReferredId(entity, id, field)));
             }
         } catch (Exception e) {
             throw new InvalidTypeException(e);
@@ -145,10 +167,10 @@ public class Repository implements EntityReader, EntityWriter {
         try {
             if (Collection.class.isAssignableFrom(field.getType())) {
                 Collection holder = initCollectionHolder(field);
-                redisFacade.readValues(entity, id, field, holder);
+                store.readValues(entity, id, field, holder);
                 field.set(entity, holder);
             } else {
-                field.set(entity, redisFacade.readValue(entity, id, field));
+                field.set(entity, store.readValue(entity, id, field));
             }
         } catch (Exception e) {
             new InvalidTypeException(e);

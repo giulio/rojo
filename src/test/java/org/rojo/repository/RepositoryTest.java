@@ -11,7 +11,6 @@ import java.util.List;
 
 import org.jredis.RedisException;
 import org.jredis.ri.alphazero.JRedisClient;
-import org.jredis.ri.alphazero.support.DefaultCodec;
 import org.junit.Before;
 import org.junit.Test;
 import org.rojo.domain.Person;
@@ -21,7 +20,7 @@ import org.rojo.repository.converters.IntegerConverter;
 import org.rojo.repository.utils.IdUtil;
 import org.rojo.test.Util;
 
-public class RepositoryIntegrationTest {
+public class RepositoryTest {
 
     private Repository target;
     private JRedisClient jrClient;
@@ -31,8 +30,6 @@ public class RepositoryIntegrationTest {
         jrClient= mock(JRedisClient.class);
         target = new Repository(new RedisFacade(jrClient, Util.initConverters()), new AnnotationValidator());
     }
-    
-  
 
     @Test(expected = InvalidTypeException.class)
     public void invalidEntityRequest() {
@@ -41,6 +38,8 @@ public class RepositoryIntegrationTest {
     
     @Test
     public void validEntityRequest() throws RedisException {
+        
+        when(jrClient.exists("org.rojo.domain.person:2")).thenReturn(true);
 
         when(jrClient.exists("org.rojo.domain.person:2:name")).thenReturn(true);
         when(jrClient.get("org.rojo.domain.person:2:name")).thenReturn(new String("mikael foobar").getBytes());
@@ -51,6 +50,9 @@ public class RepositoryIntegrationTest {
         when(jrClient.exists("org.rojo.domain.person:2:address")).thenReturn(true);
         when(jrClient.get("org.rojo.domain.person:2:address")).thenReturn(IdUtil.encodeId(6));
         
+        
+        when(jrClient.exists("org.rojo.domain.address:6")).thenReturn(true);
+
         when(jrClient.exists("org.rojo.domain.address:6:town")).thenReturn(true);
         when(jrClient.get("org.rojo.domain.address:6:town")).thenReturn(new String("Stockholm").getBytes());
         
@@ -78,6 +80,8 @@ public class RepositoryIntegrationTest {
         listOfString.add(new String("one").getBytes());
         listOfString.add(new String("dos").getBytes());
         listOfString.add(new String("tre").getBytes());
+
+        when(jrClient.exists("org.rojo.domain.somestrings:3")).thenReturn(true);
         
         when(jrClient.exists("org.rojo.domain.somestrings:3:strings")).thenReturn(true);
         when(jrClient.lrange("org.rojo.domain.somestrings:3:strings", 0, -1)).thenReturn(listOfString);
@@ -94,6 +98,8 @@ public class RepositoryIntegrationTest {
     @Test
     public void referencesInCollections() throws RedisException  {
 
+        when(jrClient.exists("org.rojo.domain.person:1")).thenReturn(true);
+        
         when(jrClient.exists("org.rojo.domain.person:1:name")).thenReturn(true);
         when(jrClient.get("org.rojo.domain.person:1:name")).thenReturn(new String("jennifer boyle").getBytes());
 
@@ -106,6 +112,9 @@ public class RepositoryIntegrationTest {
         when(jrClient.exists("org.rojo.domain.person:1:friends")).thenReturn(true);
         when(jrClient.lrange("org.rojo.domain.person:1:friends",0,-1)).thenReturn(Collections.singletonList(IdUtil.encodeId(2)));
         
+
+        when(jrClient.exists("org.rojo.domain.person:2")).thenReturn(true);
+        
         when(jrClient.exists("org.rojo.domain.person:2:name")).thenReturn(true);
         when(jrClient.get("org.rojo.domain.person:2:name")).thenReturn(new String("mikael foobar").getBytes());
         
@@ -114,13 +123,14 @@ public class RepositoryIntegrationTest {
         
         when(jrClient.exists("org.rojo.domain.person:2:address")).thenReturn(true);
         when(jrClient.get("org.rojo.domain.person:2:address")).thenReturn(IdUtil.encodeId(6));
+
+        when(jrClient.exists("org.rojo.domain.address:6")).thenReturn(true);
         
         when(jrClient.exists("org.rojo.domain.address:6:town")).thenReturn(true);
         when(jrClient.get("org.rojo.domain.address:6:town")).thenReturn(new String("Stockholm").getBytes());
 
         when(jrClient.exists("org.rojo.domain.address:6:street")).thenReturn(true);
         when(jrClient.get("org.rojo.domain.address:6:street")).thenReturn(new String("Lundagatan").getBytes());
-        
         
         Person mate = target.get(new Person(), 1);
         

@@ -1,6 +1,5 @@
 package org.rojo.exceptions;
 
-import org.jredis.RedisException;
 
 @SuppressWarnings("serial")
 public class RepositoryError extends RojoException {

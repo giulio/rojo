@@ -61,5 +61,13 @@ public class Person {
     public List<Person> getFriends() {
         return friends;
     }
+
+    @Override
+    public String toString() {
+        return String.format("[name: '%1$s', age: '%2$s', address_ref: '%3$s']", name, age, address);
+    }
+    
+    
+    
     
 }
