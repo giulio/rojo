@@ -15,7 +15,7 @@ Unit tests / integration tests can be a good starting point to get a feeling of 
 
 The basic idea is that you annotate your POJO as an *@Entity* and annotate the fields that should be persisted as either *@Value* or *@Reference*; the only constrain is that entities must have an id field (long) ant this filed must be annoteted as '@Id'.
 
-Read/write/delete operation are provided by EntityReader and EntityWriter. Ant that's pretty much it.
+Read/write/delete operations are provided by EntityReader and EntityWriter. Ant that's pretty much it.
 
 ### Install 
 
@@ -23,9 +23,9 @@ Read/write/delete operation are provided by EntityReader and EntityWriter. Ant t
 
 ### Testing 
 
-Integration test can be run using the *integration-tests* maven profile: 
+Integration tests: 
 
-    mvn -Pintegration-tests test
+    mvn integration-test
 
 
 
