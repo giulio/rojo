@@ -4,8 +4,8 @@ public interface TypeConverter {
 
         boolean applyesFor(Class<? extends Object> type);
     
-        byte[] encode(Object object);
+        String encode(Object object);
         
-        Object decode(byte[] bytes);
+        Object decode(String bytes);
     
 }

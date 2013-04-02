@@ -1,14 +1,5 @@
 package org.rojo.repository;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
-import org.jredis.RedisException;
-import org.jredis.ri.alphazero.JRedisClient;
 import org.junit.Before;
 import org.junit.Test;
 import org.rojo.annotations.Entity;
@@ -18,20 +9,28 @@ import org.rojo.annotations.Value;
 import org.rojo.repository.converters.IntegerConverter;
 import org.rojo.repository.utils.IdUtil;
 import org.rojo.test.Util;
+import redis.clients.jedis.Jedis;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 public class EntityWriterTest {
     
     private EntityWriter target;
-    private JRedisClient jrClient;
+    private Jedis jrClient;
     
     @Before
     public void init() {
-        jrClient= mock(JRedisClient.class);
+        jrClient= mock(Jedis.class);
         target = new Repository(new RedisFacade(jrClient, Util.initConverters()), new AnnotationValidator());
     }
     
     @Test
-    public void writeSimpleValueEntity() throws RedisException {
+    public void writeSimpleValueEntity() {
         SimpleValueEntity entity = new SimpleValueEntity();
         entity.id = 2;
         entity.value = 999;
@@ -40,7 +39,7 @@ public class EntityWriterTest {
     }
     
     @Test
-    public void writeCollectionOfValuesEntity() throws RedisException {
+    public void writeCollectionOfValuesEntity() {
         
         CollectionOfValuesEntity entity = new CollectionOfValuesEntity();
         entity.id = 2;
@@ -58,7 +57,7 @@ public class EntityWriterTest {
     
     
     @Test
-    public void writeReference() throws RedisException {
+    public void writeReference() {
         
         EntityWithReference entity = new EntityWithReference();
         entity.id = 6;
@@ -74,7 +73,7 @@ public class EntityWriterTest {
     }
     
     @Test 
-    public void writeCollectionOfReferences() throws RedisException {
+    public void writeCollectionOfReferences() {
        
         CollectionOfReferences entity = new CollectionOfReferences();
         entity.id = 6;

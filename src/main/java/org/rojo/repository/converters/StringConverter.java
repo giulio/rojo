@@ -10,13 +10,13 @@ public class StringConverter implements TypeConverter {
     }
 
     @Override
-    public byte[] encode(Object object) {
-        return ((String)object).getBytes();
+    public String encode(Object object) {
+        return ((String)object);
     }
 
     @Override
-    public Object decode(byte[] bytes) {
-        return new String(bytes);
+    public Object decode(String string) {
+        return string;
     }
     
 }

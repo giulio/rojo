@@ -10,13 +10,13 @@ public class IntegerConverter implements TypeConverter {
     }
 
     @Override
-    public byte[] encode(Object object) {
-        return object.toString().getBytes();
+    public String encode(Object object) {
+        return object.toString();
     }
 
     @Override
-    public Object decode(byte[] bytes) {
-        return Integer.parseInt(new String(bytes));
+    public Object decode(String string) {
+        return Integer.parseInt(string);
     }
     
 }

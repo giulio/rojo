@@ -1,15 +1,14 @@
 package org.rojo.repository;
 
-import static org.junit.Assert.assertEquals;
-
-import org.jredis.RedisException;
-import org.jredis.ri.alphazero.JRedisClient;
 import org.junit.Before;
 import org.junit.Test;
 import org.rojo.domain.Address;
 import org.rojo.domain.Person;
 import org.rojo.exceptions.MissingEntity;
 import org.rojo.test.Util;
+import redis.clients.jedis.Jedis;
+
+import static org.junit.Assert.assertEquals;
 
 public class ReadWriteTestInt {
 
@@ -19,8 +18,8 @@ public class ReadWriteTestInt {
     private Repository repository;
 
     @Before
-    public void init() throws RedisException {
-        JRedisClient jrClient = new JRedisClient(HOST, PORT);
+    public void init()  {
+        Jedis jrClient = new Jedis(HOST, PORT);
         jrClient.ping();
         repository = new Repository(new RedisFacade(jrClient, Util.initConverters()), new AnnotationValidator());
     }
