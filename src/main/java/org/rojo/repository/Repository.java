@@ -26,121 +26,124 @@ public class Repository implements EntityReader, EntityWriter {
 
     @Override
     public long write(Object entity) {
-        validator.validateEntity(entity.getClass());
-       
-        long id = IdUtil.readId(entity);
+
+        EntityRepresentation representation = EntityRepresentation.forClass(entity.getClass());
+
+        long id = representation.getId(entity);
         if (id <= 0) {
             id = store.nextId(entity.getClass());
-            setIdField(entity, id);
+            representation.setId(entity, id);
         }
         store.writeId(entity, id);
-        
-        for (Field field : entity.getClass().getDeclaredFields()) {
-            // set accessibility for private fields
+
+
+        for (Field field : representation.getValues()) {
             boolean origFieldAccessibility = field.isAccessible();
             if (!origFieldAccessibility) field.setAccessible(true);
             try {
                 if (field.get(entity) != null) {
-
-                    if (field.isAnnotationPresent(Value.class)) {
-                        if (Collection.class.isAssignableFrom(field.getType())) {
-                            @SuppressWarnings("unchecked")
-                            Collection<? extends Object> collection = (Collection<? extends Object>)field.get(entity);
-                            store.writeCollection(entity, collection, id, field);
-                        } else {
-                            store.write(entity, id, field);
-                        }
-                    }
-                    if (field.isAnnotationPresent(Reference.class)) {
-                        if (Collection.class.isAssignableFrom(field.getType())) {
-                            @SuppressWarnings("unchecked")
-                            Collection<? extends Object> referredEntities = (Collection<? extends Object>)field.get(entity);
-                            if (referredEntities.size() != 0) {
-                                List<Long> ids = new ArrayList<Long>(referredEntities.size());
-                                for (Object referredEntity : referredEntities) {
-                                    ids.add(this.write(referredEntity));
-                                }
-                                store.writeReferenceCollection(entity, field, id, ids);
-                            }
-
-                        } else {
-                            store.writeReference(entity, field, id, this.write(field.get(entity)));
-                        }
+                    if (Collection.class.isAssignableFrom(field.getType())) {
+                        @SuppressWarnings("unchecked")
+                        Collection<? extends Object> collection = (Collection<? extends Object>)field.get(entity);
+                        store.writeCollection(entity, collection, id, field);
+                    } else {
+                        store.write(entity, id, field);
                     }
                 }
-
             } catch (Exception e) {
                 throw new RepositoryError("error writing " + entity.getClass() + " - " + id + " - " + field.getName(), e);
             } finally {
-                if (!origFieldAccessibility) field.setAccessible(origFieldAccessibility); 
+                if (!origFieldAccessibility) field.setAccessible(origFieldAccessibility);
             }
-
         }
+
+        for (Field field : representation.getReferences()) {
+            boolean origFieldAccessibility = field.isAccessible();
+            if (!origFieldAccessibility) field.setAccessible(true);
+            try {
+                if (field.get(entity) != null) {
+                    if (Collection.class.isAssignableFrom(field.getType())) {
+                        @SuppressWarnings("unchecked")
+                        Collection<? extends Object> referredEntities = (Collection<? extends Object>)field.get(entity);
+                        if (referredEntities.size() != 0) {
+                            List<Long> ids = new ArrayList<Long>(referredEntities.size());
+                            for (Object referredEntity : referredEntities) {
+                                ids.add(this.write(referredEntity));
+                            }
+                            store.writeReferenceCollection(entity, field, id, ids);
+                        }
+
+                    } else {
+                        store.writeReference(entity, field, id, this.write(field.get(entity)));
+                    }
+                }
+            } catch (Exception e) {
+                throw new RepositoryError("error writing " + entity.getClass() + " - " + id + " - " + field.getName(), e);
+            } finally {
+                if (!origFieldAccessibility) field.setAccessible(origFieldAccessibility);
+            }
+        }
+
         return id;
     }
 
     @Override
     public <T> T get(T entity, long id) {
 
-        validator.validateEntity(entity.getClass());
+        EntityRepresentation representation = EntityRepresentation.forClass(entity.getClass());
+
         if (!store.exists(entity, id)) {
             throw new MissingEntity(entity.getClass(), id);
         }
 
-        setIdField(entity, id); 
+        representation.setId(entity, id);
 
-        for (Field field : entity.getClass().getDeclaredFields()) {
-            if (field.isAnnotationPresent(Value.class) || field.isAnnotationPresent(Reference.class)) {
-                if (store.hasKey(entity.getClass(), id, field)) {
-
-                    // set accessibility for private fields
-                    boolean origFieldAccessibility = field.isAccessible();
-                    if (!origFieldAccessibility) field.setAccessible(true);
-
-
-                    if (field.isAnnotationPresent(Value.class)) {
-                        processField(entity, id, field); 
-                    } else if (field.isAnnotationPresent(Reference.class)) {
-                        processReference(entity, id, field);
-                    }
-
-                    // reset accessibility
-                    if (!origFieldAccessibility) field.setAccessible(origFieldAccessibility); 
-                }
+        for (Field field : representation.getValues()) {
+            if (store.hasKey(entity.getClass(), id, field)) {
+                // set accessibility for private fields
+                boolean origFieldAccessibility = field.isAccessible();
+                if (!origFieldAccessibility) field.setAccessible(true);
+                processField(entity, id, field);
+                if (!origFieldAccessibility) field.setAccessible(origFieldAccessibility);
 
             }
         }
+
+        for (Field field : representation.getReferences()) {
+            boolean origFieldAccessibility = field.isAccessible();
+            if (!origFieldAccessibility) field.setAccessible(true);
+            processReference(entity, id, field);
+            if (!origFieldAccessibility) field.setAccessible(origFieldAccessibility);
+
+        }
+
         return entity;
     }
     
     
     public void delete(Object entity) {
-        validator.validateEntity(entity.getClass());
-        long id = IdUtil.readId(entity);
+        EntityRepresentation representation = EntityRepresentation.forClass(entity.getClass());
+
+        long id = representation.getId(entity);
         if (id <= 0) {
             throw new RepositoryError(entity.getClass() + ", invalid id: " + id);
         }
         store.removeId(entity, id);
-        for (Field field : entity.getClass().getDeclaredFields()) {
-            if ((field.isAnnotationPresent(Value.class) || field.isAnnotationPresent(Reference.class)) && store.hasKey(entity.getClass(), id, field)) {
+
+
+        for (Field field : representation.getValues()) {
+            if (store.hasKey(entity.getClass(), id, field)) {
+                store.delete(entity, id, field);
+            }
+        }
+
+        for (Field field : representation.getReferences()) {
+            if (store.hasKey(entity.getClass(), id, field)) {
                 store.delete(entity, id, field);
             }
         }
     }
 
-    private <T> void setIdField(T entity, long id) {
-        Field idField = IdUtil.getIdField(entity.getClass());
-
-        boolean idFieldAccessibility = idField.isAccessible();
-        if (!idFieldAccessibility) idField.setAccessible(true);
-        try {
-            idField.set(entity, id);
-        } catch (Exception e) {
-            new InvalidTypeException(e);
-        }
-
-        if (!idFieldAccessibility) idField.setAccessible(idFieldAccessibility);
-    }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
     private <T> void processReference(T entity, long id, Field field) {

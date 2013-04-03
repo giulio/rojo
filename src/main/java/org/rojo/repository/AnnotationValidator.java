@@ -13,16 +13,11 @@ import org.rojo.exceptions.InvalidTypeException;
 
 public class AnnotationValidator implements EntityValidator {
 
-    private static List<Class<? extends Object>> validatedEntityCache = new ArrayList<Class<? extends Object>>();
-
     @Override
     public void validateEntity(Class<? extends Object> entityClass) {
-        if (!validatedEntityCache.contains(entityClass)) {
-            verifyEntityAnnotation(entityClass);
-            verifyIdAnnotationPresent(entityClass);
-            verifyCollectionsConstraints(entityClass);
-            validatedEntityCache.add(entityClass);
-        }
+        verifyEntityAnnotation(entityClass);
+        verifyIdAnnotationPresent(entityClass);
+        verifyCollectionsConstraints(entityClass);
     }
 
     private void verifyCollectionsConstraints(Class<? extends Object> entityClass) {

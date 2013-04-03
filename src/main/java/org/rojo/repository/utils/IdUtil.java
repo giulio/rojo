@@ -24,6 +24,21 @@ public class IdUtil {
             throw new InvalidTypeException(e);
         }
     }
+
+
+    public static long readId(Object entity, Field id) {
+        long returnValue = 0;
+        boolean origFieldAccessibility = id.isAccessible();
+        if (!origFieldAccessibility) id.setAccessible(true);
+        try {
+            returnValue =  id.getLong(entity);
+        } catch (IllegalAccessException e) {
+            throw new InvalidTypeException(e);
+        } finally {
+            if (!origFieldAccessibility) id.setAccessible(origFieldAccessibility);
+        }
+        return returnValue;
+    }
     
     public static Field getIdField(Class<? extends Object> entity) {
         for (Field field : entity.getDeclaredFields()) {
