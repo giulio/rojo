@@ -1,9 +1,0 @@
-== short time
-
-  * better handling for collections (set/list)
-  * indexing: @Index annotation, callback, store by index
-  * generic callback mechanism for load/write ops
-
-== long time
-
-  * AOP, field modification write through 

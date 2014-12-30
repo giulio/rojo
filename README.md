@@ -1,31 +1,28 @@
-# ROJO - Redis pOJO - Java ORM for Redis key/value store  
-
-## About
-
-This project is in, and most probably will never leave, an embryonal stage. 
-
-The goal is to build a Java annotatin driven ORM for Redis (http://github.com/antirez/redis) key-value store. 
+# rojo  
 
 
-## Getting started
+rojo是github上的一个开源项目（https://github.com/giulio/rojo），本作进行了重构和修剪，
+使得它更符合beykery使用习惯，另外性能略有提高-`-
 
-### Getting around the code
+## 问题
 
-Unit tests / integration tests can be a good starting point to get a feeling of how things work.
+使用redis的java客户端jedis的时候需要操作一系列key，保存某个对象的时候，需要把一个
+个属性组合为key，然后set到redis，较繁琐。
 
-The basic idea is that you annotate your POJO as an *@Entity* and annotate the fields that should be persisted as either *@Value* or *@Reference*; the only constrain is that entities must have an id field (long) ant this filed must be annoteted as '@Id'.
+## 解决方案
 
-Read/write/delete operations are provided by EntityReader and EntityWriter. Ant that's pretty much it.
+rojo是为了简化对象持久化到redis时的操作的，它提供了几个运行时解析的annotation来做
+这件事情，把用户从设计对象属性的各种key的繁重劳作中解脱出来，而把精力主要放在对象
+模型的设计上。
 
-### Install 
+## 使用
 
-    mvn install
-
-### Testing 
-
-Integration tests: 
-
-    mvn integration-test
+请参看代码中的test
 
 
+## 结语
 
+enjoy it.
+
+	
+	

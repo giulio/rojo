@@ -9,4 +9,11 @@ import java.lang.annotation.Target;
 @Target(ElementType.FIELD)
 public @interface Value {
 
+    boolean unique() default false;
+
+    boolean sort() default false;
+
+    boolean bigFirst() default false;
+
+    long size() default 0;
 }
