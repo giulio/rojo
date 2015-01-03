@@ -9,48 +9,48 @@ import java.util.Set;
 import org.rojo.annotations.Entity;
 import org.rojo.annotations.Value;
 
-@Entity
+@Entity(Cache = true)
 public class TestEntity extends BaseEntity {
 
-    @Value
-    private List<String> list;
-    @Value
-    private Set<Float> set;
-    @Value
-    private Map<String, Integer> map;
-    @Value(sort = true, bigFirst = true, size = 100)
-    private int age;
+	@Value
+	private List<String> list;
+	@Value
+	private Set<Float> set;
+	@Value
+	private Map<String, Integer> map;
+	@Value(sort = true, bigFirst = true, size = 100)
+	private int age;
 
-    public void setAge(int age) {
-        this.age = age;
-    }
+	public void setAge(int age) {
+		this.age = age;
+	}
 
-    public int getAge() {
-        return age;
-    }
+	public int getAge() {
+		return age;
+	}
 
-    public void setMap(Map<String, Integer> map) {
-        this.map = map;
-    }
+	public void setMap(Map<String, Integer> map) {
+		this.map = map;
+	}
 
-    public Map<String, Integer> getMap() {
-        return map;
-    }
+	public Map<String, Integer> getMap() {
+		return map;
+	}
 
-    public void setSet(Set<Float> set) {
-        this.set = set;
-    }
+	public void setSet(Set<Float> set) {
+		this.set = set;
+	}
 
-    public Set<Float> getSet() {
-        return set;
-    }
+	public Set<Float> getSet() {
+		return set;
+	}
 
-    public List<String> getList() {
-        return list;
-    }
+	public List<String> getList() {
+		return list;
+	}
 
-    public void setList(List<String> strings) {
-        this.list = strings;
-    }
+	public void setList(List<String> strings) {
+		this.list = strings;
+	}
 
 }

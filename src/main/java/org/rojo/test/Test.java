@@ -16,13 +16,13 @@ import redis.clients.jedis.Jedis;
  */
 public class Test {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
         Jedis je = new Jedis("localhost", 6379);
         je.auth("4swardsman");
         je.ping();
         je.flushAll();
         Repository re = new Repository(je);
-        int times = 10000;
+        int times = 100000;
         long start = System.currentTimeMillis();
         for (int i = 0; i < times; i++) {
             TestEntity ss = new TestEntity();
@@ -37,8 +37,21 @@ public class Test {
             map.put("a", 1);
             map.put("b", 2);
             re.writeAndFlush(ss);
-            ss = re.get(TestEntity.class, ss.getId());
-            ss.getId();
+        }
+        System.out.println(System.currentTimeMillis() - start);
+        
+        Repository.getCache().clear();
+        start = System.currentTimeMillis();
+        for (int i = 0; i < times; i++) {
+            TestEntity te = re.get(TestEntity.class, i + 1);
+            //System.out.println(te);
+        }
+        System.out.println(System.currentTimeMillis() - start);
+
+        start = System.currentTimeMillis();
+        for (int i = 0; i < times; i++) {
+            TestEntity te = re.get(TestEntity.class, i + 1);
+            //System.out.println(te);
         }
         System.out.println(System.currentTimeMillis() - start);
     }
