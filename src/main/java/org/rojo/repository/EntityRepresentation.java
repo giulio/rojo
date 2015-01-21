@@ -12,7 +12,7 @@ import org.rojo.annotations.Entity;
 import org.rojo.annotations.Id;
 
 /**
- * Encapsulate an entity. Provide accessors for @Id and @Attributes.
+ * Encapsulate an entity. Provide accessors for @Id and @Value.
  *
  * Entities representation are cached since instantiation requires access to
  * Java reflection methods (time consuming)

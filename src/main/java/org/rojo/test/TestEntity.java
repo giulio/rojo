@@ -18,7 +18,7 @@ public class TestEntity extends BaseEntity {
 	private Set<Float> set;
 	@Value
 	private Map<String, Integer> map;
-	@Value(sort = true, bigFirst = true, size = 100)
+	@Value(sort = true, bigFirst = false, size = 100)
 	private int age;
 
 	public void setAge(int age) {
