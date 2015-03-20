@@ -7,50 +7,103 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.rojo.annotations.Entity;
+import org.rojo.annotations.Index;
 import org.rojo.annotations.Value;
 
-@Entity(Cache = true)
-public class TestEntity extends BaseEntity {
+@Entity(table = "te", cache = true)
+public class TestEntity extends BaseEntity
+{
 
-	@Value
-	private List<String> list;
-	@Value
-	private Set<Float> set;
-	@Value
-	private Map<String, Integer> map;
-	@Value(sort = true, bigFirst = false, size = 100)
-	private int age;
+  @Value(column = "l")
+  private List<String> list;
+  @Value(column = "s")
+  private Set<Float> set;
+  @Value(column = "m")
+  private Map<String, Integer> map;
+  @Value(column = "a", sort = true, bigFirst = false, size = 5)
+  private int age;
+  @Value(column = "sex")
+  @Index
+  private int sex;
+  @Value(column = "t1")
+  private int t1;
+  @Value(column = "t2")
+  private long t2;
 
-	public void setAge(int age) {
-		this.age = age;
-	}
+  public void setT1(int t1)
+  {
+    this.t1 = t1;
+  }
 
-	public int getAge() {
-		return age;
-	}
+  public int getT1()
+  {
+    return t1;
+  }
 
-	public void setMap(Map<String, Integer> map) {
-		this.map = map;
-	}
+  public void setT2(long t2)
+  {
+    this.t2 = t2;
+  }
 
-	public Map<String, Integer> getMap() {
-		return map;
-	}
+  public long getT2()
+  {
+    return t2;
+  }
 
-	public void setSet(Set<Float> set) {
-		this.set = set;
-	}
+  public int getSex()
+  {
+    return sex;
+  }
 
-	public Set<Float> getSet() {
-		return set;
-	}
+  public void setSex(int sex)
+  {
+    this.sex = sex;
+  }
 
-	public List<String> getList() {
-		return list;
-	}
+  public void setAge(int age)
+  {
+    this.age = age;
+  }
 
-	public void setList(List<String> strings) {
-		this.list = strings;
-	}
+  public int getAge()
+  {
+    return age;
+  }
+
+  public void setMap(Map<String, Integer> map)
+  {
+    this.map = map;
+  }
+
+  public Map<String, Integer> getMap()
+  {
+    return map;
+  }
+
+  public void setSet(Set<Float> set)
+  {
+    this.set = set;
+  }
+
+  public Set<Float> getSet()
+  {
+    return set;
+  }
+
+  public List<String> getList()
+  {
+    return list;
+  }
+
+  public void setList(List<String> strings)
+  {
+    this.list = strings;
+  }
+
+  @Override
+  public String toString()
+  {
+    return this.getId();
+  }
 
 }

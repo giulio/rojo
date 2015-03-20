@@ -11,24 +11,28 @@ import org.rojo.annotations.Value;
  *
  * @author beykery
  */
-@Entity
-public class BaseEntity {
+@Entity(table = "be")
+public class BaseEntity
+{
 
-    @Id(Generator = "common::id")
-    private long id;
-    @Value(unique = true)
-    private String name;
+	@Id()
+	private String id;
+	@Value(column = "n",unique = true)
+	private String name;
 
-    public long getId() {
-        return id;
-    }
+	public String getId()
+	{
+		return id;
+	}
 
-    public String getName() {
-        return name;
-    }
+	public String getName()
+	{
+		return name;
+	}
 
-    public void setName(String name) {
-        this.name = name;
-    }
+	public void setName(String name)
+	{
+		this.name = name;
+	}
 
 }

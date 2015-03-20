@@ -1,23 +1,27 @@
 package org.rojo.exceptions;
 
 @SuppressWarnings("serial")
-public class RojoException extends RuntimeException {
+public class RojoException extends RuntimeException
+{
 
-    public RojoException() {
-        super();
-    }
+  public RojoException()
+  {
+    super();
+  }
 
-    public RojoException(Throwable e) {
-        super(e);
-    }
+  public RojoException(Throwable e)
+  {
+    super(e);
+  }
 
-    public RojoException(String msg) {
-        super(msg);
-    }
+  public RojoException(String msg)
+  {
+    super(msg);
+  }
 
-    public RojoException(String msg, Exception e) {
-        super(msg, e);
-    }
+  public RojoException(String msg, Exception e)
+  {
+    super(msg, e);
+  }
 
-    
 }
