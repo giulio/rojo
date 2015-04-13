@@ -167,7 +167,15 @@ public class Rojo
       EntityRepresentation representation = EntityRepresentation.forClass(entity.getClass());
       String id = representation.getId(entity);
       String table = representation.getTable();
-      id = isEmpty(id) ? representation.getIdGenerator().id(entity.getClass(), table, store.getJedis()) : id;
+      boolean auto = representation.isAutoId();
+      if (auto)
+      {
+        id = isEmpty(id) ? representation.getIdGenerator().id(entity.getClass(), table, store.getJedis()) : id;
+      }
+      if (isEmpty(id))//null id
+      {
+        return null;
+      }
       Field unique = representation.getUnique();
       if (unique != null)
       {
@@ -193,7 +201,14 @@ public class Rojo
             store.writeMap(table, map, id, representation.getColumns()[i]);
           } else
           {
-            store.write(table, id, representation.getColumns()[i], field.get(entity), field, true);
+            Object v = field.get(entity);
+            if (v instanceof byte[])//blob
+            {
+              store.writeBlob(table, id, representation.getColumns()[i], (byte[]) v, field);
+            } else
+            {
+              store.write(table, id, representation.getColumns()[i], v, field, true);
+            }
           }
         }
       }
@@ -241,7 +256,13 @@ public class Rojo
             store.writeMap(table, (Map) v, id, column);
           } else
           {
-            store.update(table, id, column, v, f);
+            if (v instanceof byte[])//blob
+            {
+              store.writeBlob(table, id, column, (byte[])v, f);
+            } else
+            {
+              store.update(table, id, column, v, f);
+            }
           }
         }
         if (representation.isCache())
@@ -511,7 +532,7 @@ public class Rojo
   }
 
   /**
-   * the indexing ids
+   * the indexings
    *
    * @param <T>
    * @param claz
@@ -521,12 +542,17 @@ public class Rojo
    */
   public <T> Set<T> index(Class<T> claz, String p, Object v)
   {
+    return this.index(claz, p, v, 0, -1);
+  }
+
+  public <T> Set<T> index(Class<T> claz, String p, Object v, long start, long end)
+  {
     try
     {
       EntityRepresentation representation = EntityRepresentation.forClass(claz);
       String table = representation.getTable();
       String column = representation.getColumn(p);
-      Set<String> s = store.index(table, column, v);
+      Set<String> s = store.index(table, column, v, start, end);
       Set<T> r = new LinkedHashSet<T>(s.size());
       for (String item : s)
       {
@@ -738,7 +764,7 @@ public class Rojo
     }
   }
 
-  private boolean isEmpty(String id)
+  private static boolean isEmpty(String id)
   {
     return id == null || id.isEmpty();
   }

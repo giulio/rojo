@@ -25,7 +25,7 @@ public class TestGenerator extends IdGenerator
   @Override
   public String id(Class claz, String table, Jedis je)
   {
-    return je.incr(name) + "fkey";
+    return je.incr(table+":::id") + "fkey";
   }
 
 }

@@ -15,7 +15,7 @@ import org.rojo.annotations.Value;
 public class BaseEntity
 {
 
-	@Id()
+	@Id(auto = true,generator = "common:id")
 	private String id;
 	@Value(column = "n",unique = true)
 	private String name;

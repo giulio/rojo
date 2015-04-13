@@ -3,6 +3,7 @@
  */
 package org.rojo.test;
 
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -20,21 +21,20 @@ import redis.clients.jedis.Jedis;
 public class Test
 {
 
-  public static void main(String[] args) throws InterruptedException
+  public static void main(String[] args) throws InterruptedException, UnsupportedEncodingException
   {
+    long os=System.currentTimeMillis();
     int times = 10;
-    long start = System.currentTimeMillis();
-    long os = start;
     Jedis je = new Jedis("localhost", 6379);
     je.auth("ssm123");
     je.ping();
     Rojo re = new Rojo(je);
     je.flushAll();
-    // new TestGenerator(je, "common:id").configue("common:id");//configue id generator
+    new TestGenerator(je, "common:id").configue("common:id");//configue id generator
     for (int i = 1; i <= times; i++)
     {
       TestEntity ss = new TestEntity();
-      ss.setName("test" + i);
+      ss.setName("test名字" + i);
       ss.setAge(i);
       List<String> l = new ArrayList<String>();
       l.add("fd");
@@ -49,48 +49,46 @@ public class Test
       set.add(1.2f);
       set.add(3.14159f);
       ss.setSex(i % 2 == 1 ? 1 : 0);
+      ss.setContent("哈哈".getBytes("UTF-8"));
       re.saveAndFlush(ss);
       ss.setT1(41);
       ss.setT2(20);
-      re.updateAndFlush(ss, "t1", "t2");
+      ss.setContent("哈哈111".getBytes("UTF-8"));
+      re.updateAndFlush(ss, "t1", "t2","content");
+      Thread.sleep(10);
     }
 
-    System.out.println(System.currentTimeMillis() - start);
     re.clearCache();
-    start = System.currentTimeMillis();
     for (int i = 1; i <= times; i++)
     {
-      TestEntity te = re.get(TestEntity.class, i + "");
+      TestEntity te = re.get(TestEntity.class, i + "fkey");
       System.out.println(te);
     }
-    System.out.println(System.currentTimeMillis() - start);
 
-    start = System.currentTimeMillis();
     for (int i = 1; i <= times; i++)
     {
-      TestEntity te = re.get(TestEntity.class, (i) + "");
+      TestEntity te = re.get(TestEntity.class, (i) + "fkey");
       System.out.println(te);
     }
-    System.out.println(System.currentTimeMillis() - start);
 
     re.clearCache();
     Set<TestEntity> l = re.index(TestEntity.class, "sex", 0);
     System.out.println(l);
 
-    TestEntity te = re.unique(TestEntity.class, "test6");
+    TestEntity te = re.unique(TestEntity.class, "test名字6");
     System.out.println("unique:" + te);
 
     Set<TestEntity> r = re.range(TestEntity.class, "age", -5, -1);
     System.out.println(r);
 
-    long rank = re.rank(TestEntity.class, "10", "age");
+    long rank = re.rank(TestEntity.class, "10fkey", "age");
     System.out.println(rank);
     Set<TestEntity> tes = re.all(TestEntity.class, 0, -1);
     System.out.println(tes);
     re.deleteAndFlush(te);
     tes = re.all(TestEntity.class, 0, -1);
     System.out.println(tes);
-    Date ctime = re.createTime(TestEntity.class, "8");
+    Date ctime = re.createTime(TestEntity.class, "8fkey");
     System.out.println(ctime);
     tes = re.all(TestEntity.class, new Date(os), ctime);
     System.out.println(tes);

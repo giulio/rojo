@@ -37,6 +37,7 @@ public class EntityRepresentation
   private final Map<String, String> columnMap = new HashMap<String, String>();
   private final List<Field> indexes = new ArrayList<Field>();
   private IdGenerator idGenerator;
+  private boolean autoId;
 
   static
   {
@@ -116,6 +117,7 @@ public class EntityRepresentation
           id = f;
           Id annotation = id.getAnnotation(Id.class);
           idGenerator = IdGenerator.getGenerator(annotation.generator());
+          autoId = annotation.auto();
           if (idGenerator == null)
           {
             error(claz, "idGenerator is null!");
@@ -142,12 +144,12 @@ public class EntityRepresentation
         }
         if (value.unique())
         {
-          if (unique == null)
+          if (unique == null && f.getType() != byte[].class)//blob not unique
           {
             this.unique = f;
           } else
           {
-            error(claz, "more than one unique field !");
+            error(claz, "more than one unique field or blob unique.");
           }
         }
       }
@@ -180,6 +182,11 @@ public class EntityRepresentation
   public IdGenerator getIdGenerator()
   {
     return idGenerator;
+  }
+
+  public boolean isAutoId()
+  {
+    return autoId;
   }
 
   public String getTable()

@@ -1,5 +1,6 @@
 package org.rojo.repository;
 
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -7,6 +8,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -43,11 +45,12 @@ public class RedisFacade
    * @param column
    * @param field
    * @return
+   * @throws java.io.UnsupportedEncodingException
    */
   @SuppressWarnings("unchecked")
-  public <T> T readValue(String table, String id, String column, Field field)
+  public <T> T readValue(String table, String id, String column, Field field) throws UnsupportedEncodingException
   {
-    String v = je.hget(keyForAllField(table, id), column);
+    byte[] v = je.hget(keyForAllField(table, id).getBytes("UTF-8"), column.getBytes("UTF-8"));
     Class<?> t = field.getType();
     return decode(t, v);
   }
@@ -127,7 +130,7 @@ public class RedisFacade
         fields[i].set(entity, map);
       } else
       {
-        fields[i].set(entity, decode(fields[i].getType(), (String) rs[i].get()));
+        fields[i].set(entity, decode(fields[i].getType(), rs[i].get()));
       }
     }
   }
@@ -198,10 +201,32 @@ public class RedisFacade
           Index index = field.getAnnotation(Index.class);
           if (index != null)//indexing
           {
-            pipe.sadd(keyForIndex(table, column, v.toString()), String.valueOf(id));
+            pipe.zadd(keyForIndex(table, column, v.toString()), System.currentTimeMillis(), String.valueOf(id));
           }
         }
       }
+      return true;
+    } catch (Exception e)
+    {
+      return false;
+    }
+  }
+
+  /**
+   * blob type
+   *
+   * @param table
+   * @param id
+   * @param column
+   * @param v
+   * @param field
+   * @return
+   */
+  boolean writeBlob(String table, String id, String column, byte[] v, Field field)
+  {
+    try
+    {
+      pipe.hset(keyForAllField(table, id).getBytes("UTF-8"), column.getBytes("UTF-8"), v);
       return true;
     } catch (Exception e)
     {
@@ -323,11 +348,16 @@ public class RedisFacade
    *
    * @param <T>
    * @param t
-   * @param v
+   * @param o
    * @return
    */
-  public static <T> T decode(Class<?> t, String v)
+  public static <T> T decode(Class<?> t, Object o)
   {
+    if (t == byte[].class)
+    {
+      return (T) o;
+    }
+    String v = (String) o;
     if (t == Integer.class || t == int.class)
     {
       return isEmpty(v) ? (T) (Integer) 0 : (T) (Integer) Integer.parseInt(v);
@@ -472,7 +502,7 @@ public class RedisFacade
    * @param field
    * @return
    */
-  Response readFuture(String table, String id, String column, Field field)
+  Response readFuture(String table, String id, String column, Field field) throws UnsupportedEncodingException
   {
     if (Collection.class.isAssignableFrom(field.getType()))
     {
@@ -482,7 +512,13 @@ public class RedisFacade
       return pipe.hgetAll(keyForField(table, id, column));
     } else
     {
-      return pipe.hget(keyForAllField(table, id), column);
+      if (field.getType() == byte[].class)
+      {
+        return pipe.hget(keyForAllField(table, id).getBytes("UTF-8"), column.getBytes("UTF-8"));
+      } else
+      {
+        return pipe.hget(keyForAllField(table, id), column);
+      }
     }
   }
 
@@ -502,7 +538,7 @@ public class RedisFacade
       return new ArrayList();
     } else if (field.getType() == Set.class)
     {
-      return new HashSet();
+      return new LinkedHashSet();
     } else
     {
       throw new InvalidTypeException("unsupported Collection subtype");
@@ -540,7 +576,7 @@ public class RedisFacade
    */
   void deleteIndex(String table, String column, String v, String id)
   {
-    pipe.srem(keyForIndex(table, column, v), String.valueOf(id));
+    pipe.zrem(keyForIndex(table, column, v), String.valueOf(id));
   }
 
   /**
@@ -551,10 +587,10 @@ public class RedisFacade
    * @param v
    * @return
    */
-  Set<String> index(String table, String column, Object v)
+  Set<String> index(String table, String column, Object v, long start, long end)
   {
     String key = keyForIndex(table, column, v.toString());
-    Set<String> set = je.smembers(key);
+    Set<String> set = je.zrange(key, start, end);
     return set;
   }
 

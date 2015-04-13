@@ -10,9 +10,16 @@ import java.lang.annotation.Target;
 public @interface Id
 {
 
-	/**
-	 *
-	 * @return
-	 */
-	String generator() default "defaultGenerator";
+  /**
+   *
+   * @return
+   */
+  String generator() default "defaultGenerator";
+
+  /**
+   * 
+   * @return
+   */
+  boolean auto() default false;
+
 }

@@ -29,6 +29,8 @@ public class TestEntity extends BaseEntity
   private int t1;
   @Value(column = "t2")
   private long t2;
+  @Value
+  private byte[] content;
 
   public void setT1(int t1)
   {
@@ -98,6 +100,16 @@ public class TestEntity extends BaseEntity
   public void setList(List<String> strings)
   {
     this.list = strings;
+  }
+
+  public byte[] getContent()
+  {
+    return content;
+  }
+
+  public void setContent(byte[] content)
+  {
+    this.content = content;
   }
 
   @Override
