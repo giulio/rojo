@@ -4,7 +4,7 @@
 
 	<groupId>org.rojo</groupId>
 	<artifactId>rojo</artifactId>
-	<version>1.0-SNAPSHOT</version>
+	<version>1.0</version>
 	<packaging>jar</packaging>
 
 	<name>rojo</name>
@@ -112,16 +112,10 @@
 		</dependency>
 	</dependencies>
 	
-	<distributionManagement>
-	<!--
-		<snapshotRepository>
-			<id>beykery</id>
-			<url>http://localhost:8081/nexus/content/repositories/beykery</url>
-		</snapshotRepository>
-		-->
-		<snapshotRepository>
-			<id>nookjoy-release</id>
-			<url>http://10.18.103.140:8081/nexus/content/repositories/nookjoy-release</url>
-		</snapshotRepository>
-	</distributionManagement>
+<distributionManagement>
+  <repository>
+    <id>beykery</id>
+    <url>http://localhost:8081/nexus/content/repositories/beykery</url>
+  </repository>
+</distributionManagement>
 </project>

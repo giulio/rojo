@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -385,6 +384,10 @@ public class RedisFacade
     if (t == Byte.class || t == byte.class)
     {
       return isEmpty(v) ? (T) (Byte) (byte) 0 : (T) (Byte) Byte.parseByte(v);
+    }
+    if (t == Boolean.class || t == boolean.class)
+    {
+      return isEmpty(v) ? (T) Boolean.FALSE : (T) (Boolean) Boolean.parseBoolean(v);
     }
     throw new InvalidTypeException("不支持的类型：" + t);
   }

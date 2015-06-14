@@ -9,8 +9,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.rojo.annotations.Entity;
 import org.rojo.annotations.Id;
 import org.rojo.annotations.Index;
@@ -27,7 +25,8 @@ public class EntityRepresentation
 
   private static final Map<Class<? extends Object>, EntityRepresentation> knownEntities;
   private static final Map<String, EntityRepresentation> tableEntities;
-  private final boolean cache;
+
+  private boolean cacheable;
   private String table;
   private Field id;
   private final Field[] fields;
@@ -69,7 +68,7 @@ public class EntityRepresentation
   private EntityRepresentation(Class<? extends Object> entityClass)
   {
     verifyEntityAnnotation(entityClass);
-    cache = entityClass.getAnnotation(Entity.class).cache();
+    cacheable = entityClass.getAnnotation(Entity.class).cache();
     table = entityClass.getAnnotation(Entity.class).table();
     if (table.isEmpty())
     {
@@ -249,9 +248,14 @@ public class EntityRepresentation
     return returnValue;
   }
 
-  public boolean isCache()
+  public boolean isCacheable()
   {
-    return cache;
+    return cacheable;
+  }
+
+  public void setCacheable(boolean cache)
+  {
+    this.cacheable = cache;
   }
 
   Object readProperty(Object entity, Field f)

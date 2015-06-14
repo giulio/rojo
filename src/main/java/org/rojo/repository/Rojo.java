@@ -31,9 +31,12 @@ public class Rojo
   private static final Lock readLock = lock.readLock();
   private static final Lock writeLock = lock.writeLock();
   private static volatile int cachedObjectCounter;
-  private CacheoutListerner cacheoutListerner;
+  private static CacheoutListerner cacheoutListerner;
   private static volatile long hit;
-  private static volatile int miss;
+  private static volatile long miss;
+  private static volatile long read;
+  private static volatile long write;
+  private static boolean cacheable;//cache?
 
   static
   {
@@ -44,6 +47,7 @@ public class Rojo
     try
     {
       TIMES_CACHE_CLEAR = Integer.parseInt(System.getProperty("rojo.times.cache.clear", "15000"));
+      cacheable = Boolean.parseBoolean(System.getProperty("rojo.cacheable", "false"));
     } catch (Exception e)
     {
       LOG.log(Level.WARNING, "property rojo.times.cache.clear is missing,15000 will be applied");
@@ -76,6 +80,7 @@ public class Rojo
       EntityRepresentation representation = EntityRepresentation.forClass(c);
       String table = representation.getTable();
       Set<String> s = store.all(table, start, end);
+      read++;
       Set<T> r = new LinkedHashSet<T>(s.size());
       for (String item : s)
       {
@@ -105,6 +110,7 @@ public class Rojo
       EntityRepresentation representation = EntityRepresentation.forClass(c);
       String table = representation.getTable();
       Set<String> s = store.all(table, start, end);
+      read++;
       Set<T> r = new LinkedHashSet<T>(s.size());
       for (String item : s)
       {
@@ -131,6 +137,7 @@ public class Rojo
     {
       EntityRepresentation representation = EntityRepresentation.forClass(c);
       String table = representation.getTable();
+      read++;
       return store.createTime(table, id);
     } catch (Exception e)
     {
@@ -142,6 +149,7 @@ public class Rojo
   public void flush()
   {
     store.flush();
+    write++;
   }
 
   public String saveAndFlush(Object entity)
@@ -150,6 +158,7 @@ public class Rojo
     if ((id = save(entity)) != null)
     {
       store.flush();
+      write++;
     }
     return id;
   }
@@ -170,7 +179,11 @@ public class Rojo
       boolean auto = representation.isAutoId();
       if (auto)
       {
-        id = isEmpty(id) ? representation.getIdGenerator().id(entity.getClass(), table, store.getJedis()) : id;
+        if (isEmpty(id))
+        {
+          id = representation.getIdGenerator().id(entity.getClass(), table, store.getJedis());
+          write++;
+        }
       }
       if (isEmpty(id))//null id
       {
@@ -214,7 +227,7 @@ public class Rojo
       }
       representation.setId(entity, id);
       store.addId(table, id);
-      if (representation.isCache())
+      if (representation.isCacheable())
       {
         cache(entity, id);
       }
@@ -258,14 +271,14 @@ public class Rojo
           {
             if (v instanceof byte[])//blob
             {
-              store.writeBlob(table, id, column, (byte[])v, f);
+              store.writeBlob(table, id, column, (byte[]) v, f);
             } else
             {
               store.update(table, id, column, v, f);
             }
           }
         }
-        if (representation.isCache())
+        if (Rojo.cacheable && representation.isCacheable())
         {
           Object c = getFromCache(claz, id);
           if (entity != c && c != null)//cache invalid
@@ -294,6 +307,7 @@ public class Rojo
     if (this.update(entity, ps))
     {
       flush();
+      write++;
       return true;
     }
     return false;
@@ -318,6 +332,7 @@ public class Rojo
     {
       EntityRepresentation representation = EntityRepresentation.forClass(claz);
       String table = representation.getTable();
+      read++;
       if (!store.exists(table, id))
       {
         return null;
@@ -325,7 +340,8 @@ public class Rojo
       entity = claz.newInstance();
       representation.setId(entity, id);
       store.processFields(entity, representation, id);
-      if (representation.isCache())
+      read++;
+      if (Rojo.cacheable && representation.isCacheable())
       {
         cache(entity, id);
       }
@@ -350,6 +366,7 @@ public class Rojo
     {
       EntityRepresentation representation = EntityRepresentation.forClass(claz);
       String table = representation.getTable();
+      read++;
       return store.exists(table, id);
     } catch (Exception e)
     {
@@ -375,7 +392,7 @@ public class Rojo
       Field f = representation.getField(p);
       String table = representation.getTable();
       String column = representation.getColumn(p);
-      if (representation.isCache())
+      if (Rojo.cacheable && representation.isCacheable())
       {
         Object entity = getFromCache(claz, id);
         if (entity != null)
@@ -383,6 +400,7 @@ public class Rojo
           return (T) f.get(entity);
         }
       }
+      read++;
       if (Collection.class.isAssignableFrom(f.getType()))
       {
         Collection holder = RedisFacade.initCollectionHolder(f);
@@ -412,6 +430,7 @@ public class Rojo
   public void deleteAndFlush(Object entity)
   {
     this.delete(entity);
+    write++;
     flush();
   }
 
@@ -465,7 +484,7 @@ public class Rojo
       }
       store.delete(table, id);//all simple properties
       store.deleteId(table, id);//id
-      if (representation.isCache())
+      if (Rojo.cacheable && representation.isCacheable())
       {
         evict(claz, id);
       }
@@ -494,6 +513,7 @@ public class Rojo
       String table = representation.getTable();
       String column = representation.getColumn(f.getName());
       Set<String> s = store.range(table, column, f, start, end);
+      read++;
       Set<T> r = new LinkedHashSet<T>(s.size());
       for (String item : s)
       {
@@ -523,6 +543,7 @@ public class Rojo
       Field f = representation.getField(p);
       String table = representation.getTable();
       String column = representation.getColumn(p);
+      read++;
       return store.rank(table, column, f, id);
     } catch (Exception e)
     {
@@ -553,6 +574,7 @@ public class Rojo
       String table = representation.getTable();
       String column = representation.getColumn(p);
       Set<String> s = store.index(table, column, v, start, end);
+      read++;
       Set<T> r = new LinkedHashSet<T>(s.size());
       for (String item : s)
       {
@@ -583,6 +605,7 @@ public class Rojo
       String table = representation.getTable();
       String column = representation.getColumn(unique.getName());
       String id = store.unique(table, column, v.toString());
+      read++;
       return id == null ? null : this.get(claz, id);
     } catch (Exception e)
     {
@@ -709,7 +732,7 @@ public class Rojo
    * clear cache
    */
   @SuppressWarnings("empty-statement")
-  public void clearCache()
+  public static void clearCache()
   {
     writeLock.lock();
     try
@@ -740,12 +763,12 @@ public class Rojo
     return cachedObjectCounter;
   }
 
-  public void setCacheoutListerner(CacheoutListerner cacheoutListerner)
+  public static void setCacheoutListerner(CacheoutListerner cacheoutListerner)
   {
-    this.cacheoutListerner = cacheoutListerner;
+    Rojo.cacheoutListerner = cacheoutListerner;
   }
 
-  public CacheoutListerner getCacheoutListerner()
+  public static CacheoutListerner getCacheoutListerner()
   {
     return cacheoutListerner;
   }
@@ -756,11 +779,11 @@ public class Rojo
    * @param claz
    * @param id
    */
-  private void onCacheout(Class claz, String id)
+  private static void onCacheout(Class claz, String id)
   {
-    if (this.cacheoutListerner != null)
+    if (cacheoutListerner != null)
     {
-      this.cacheoutListerner.onCacheout(claz, id);
+      cacheoutListerner.onCacheout(claz, id);
     }
   }
 
@@ -792,4 +815,29 @@ public class Rojo
   {
     return miss;
   }
+
+  public static long read()
+  {
+    return read;
+  }
+
+  public static long write()
+  {
+    return write;
+  }
+
+  public static boolean isCacheable()
+  {
+    return cacheable;
+  }
+
+  public static void setCacheable(boolean cacheable)
+  {
+    Rojo.cacheable = cacheable;
+    if (!cacheable)
+    {
+      Rojo.clearCache();
+    }
+  }
+
 }
