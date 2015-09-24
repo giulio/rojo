@@ -15,24 +15,36 @@ import org.rojo.annotations.Value;
 public class BaseEntity
 {
 
-	@Id(auto = true,generator = "common:id")
-	private String id;
-	@Value(column = "n",unique = true)
-	private String name;
+  @Id(auto = true, generator = "common:id")
+  private String id;
+  @Value(column = "n", unique = true)
+  private String name;
+  @Value
+  private String tests;
 
-	public String getId()
-	{
-		return id;
-	}
+  public String getId()
+  {
+    return id;
+  }
 
-	public String getName()
-	{
-		return name;
-	}
+  public String getName()
+  {
+    return name;
+  }
 
-	public void setName(String name)
-	{
-		this.name = name;
-	}
+  public void setName(String name)
+  {
+    this.name = name;
+  }
+
+  public String getTests()
+  {
+    return tests;
+  }
+
+  public void setTests(String tests)
+  {
+    this.tests = tests;
+  }
 
 }

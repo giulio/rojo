@@ -36,14 +36,17 @@ public class Test
       TestEntity ss = new TestEntity();
       ss.setName("test名字" + i);
       ss.setAge(i);
+      ss.setTests(null);
       List<String> l = new ArrayList<String>();
       l.add("fd");
       l.add("akjl;sfd");
+      l.add(null);
       ss.setList(l);
       Map<String, Integer> map = new HashMap<String, Integer>();
       ss.setMap(map);
       map.put("a", 1);
       map.put("b", 2);
+      map.put("c", null);
       Set<Float> set = new HashSet<Float>();
       ss.setSet(set);
       set.add(1.2f);
@@ -55,10 +58,12 @@ public class Test
       ss.setT2(20);
       ss.setContent("哈哈111".getBytes("UTF-8"));
       re.updateAndFlush(ss, "t1", "t2","content");
+      ss=re.get(TestEntity.class, ss.getId());
+      System.out.println(ss);
       Thread.sleep(10);
     }
 
-    re.clearCache();
+    Rojo.clearCache();
     for (int i = 1; i <= times; i++)
     {
       TestEntity te = re.get(TestEntity.class, i + "fkey");
@@ -71,7 +76,7 @@ public class Test
       System.out.println(te);
     }
 
-    re.clearCache();
+    Rojo.clearCache();
     Set<TestEntity> l = re.index(TestEntity.class, "sex", 0);
     System.out.println(l);
 

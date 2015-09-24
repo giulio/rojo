@@ -36,7 +36,7 @@ public class Rojo
   private static volatile long miss;
   private static volatile long read;
   private static volatile long write;
-  private static boolean cacheable;//cache?
+  private static volatile boolean cacheable;//cache?
 
   static
   {
@@ -169,7 +169,7 @@ public class Rojo
    * @param entity
    * @return
    */
-  public String save(Object entity)
+  private String save(Object entity)
   {
     try
     {
@@ -177,6 +177,7 @@ public class Rojo
       String id = representation.getId(entity);
       String table = representation.getTable();
       boolean auto = representation.isAutoId();
+      boolean idCache = representation.isIdCache();
       if (auto)
       {
         if (isEmpty(id))
@@ -226,10 +227,9 @@ public class Rojo
         }
       }
       representation.setId(entity, id);
-      store.addId(table, id);
-      if (representation.isCacheable())
+      if (idCache)
       {
-        cache(entity, id);
+        store.addId(table, id);
       }
       return id;
     } catch (Exception e)
@@ -261,15 +261,15 @@ public class Rojo
           Field f = representation.getField(p);
           String column = representation.getColumn(p);
           Object v = representation.readProperty(entity, f);
-          if (Collection.class.isAssignableFrom(f.getType()) && Collection.class.isAssignableFrom(v.getClass()))
+          if (Collection.class.isAssignableFrom(f.getType()))
           {
             store.writeCollection(table, (Collection) v, id, column);
-          } else if (Map.class.isAssignableFrom(f.getType()) && Map.class.isAssignableFrom(v.getClass()))
+          } else if (Map.class.isAssignableFrom(f.getType()))
           {
             store.writeMap(table, (Map) v, id, column);
           } else
           {
-            if (v instanceof byte[])//blob
+            if (f.getType() == byte[].class)//blob
             {
               store.writeBlob(table, id, column, (byte[]) v, f);
             } else
@@ -278,12 +278,51 @@ public class Rojo
             }
           }
         }
-        if (Rojo.cacheable && representation.isCacheable())
+        return true;
+      }
+    } catch (Exception e)
+    {
+      LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
+    }
+    return false;
+  }
+
+  /**
+   * update all properties exclude unique
+   *
+   * @param entity
+   * @return
+   */
+  public boolean update(Object entity)
+  {
+    try
+    {
+      Class claz = entity.getClass();
+      EntityRepresentation representation = EntityRepresentation.forClass(claz);
+      String table = representation.getTable();
+      String id = representation.getId(entity);
+      if (id != null)
+      {
+        for (String p : representation.getColumns())
         {
-          Object c = getFromCache(claz, id);
-          if (entity != c && c != null)//cache invalid
+          Field f = representation.getField(p);
+          String column = representation.getColumn(p);
+          Object v = representation.readProperty(entity, f);
+          if (Collection.class.isAssignableFrom(f.getType()))
           {
-            this.evict(claz, id);//evict invalid entity
+            store.writeCollection(table, (Collection) v, id, column);
+          } else if (Map.class.isAssignableFrom(f.getType()))
+          {
+            store.writeMap(table, (Map) v, id, column);
+          } else
+          {
+            if (f.getType() == byte[].class)//blob
+            {
+              store.writeBlob(table, id, column, (byte[]) v, f);
+            } else
+            {
+              store.update(table, id, column, v, f);
+            }
           }
         }
         return true;
@@ -314,6 +353,23 @@ public class Rojo
   }
 
   /**
+   * update all properties of entity
+   *
+   * @param entity
+   * @return
+   */
+  public boolean updateAndFlush(Object entity)
+  {
+    if (this.update(entity))
+    {
+      flush();
+      write++;
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * read an entity
    *
    * @param <T>
@@ -323,7 +379,7 @@ public class Rojo
    */
   public <T> T get(Class<T> claz, String id)
   {
-    T entity = (T) getFromCache(claz, id);
+    T entity = getFromCache(claz, id);
     if (entity != null)
     {
       return entity;
@@ -348,6 +404,7 @@ public class Rojo
       return entity;
     } catch (Exception e)
     {
+      e.printStackTrace();
       LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
       throw new RepositoryError(e);
     }
@@ -432,6 +489,22 @@ public class Rojo
     this.delete(entity);
     write++;
     flush();
+  }
+
+  /**
+   * delete by id
+   *
+   * @param claz
+   * @param id
+   */
+  public void deleteAndFlush(Class claz, String id)
+  {
+    this.evict(claz, id);
+    Object temp = this.get(claz, id);
+    if (temp != null)
+    {
+      this.deleteAndFlush(temp);
+    }
   }
 
   /**
@@ -528,6 +601,39 @@ public class Rojo
   }
 
   /**
+   * range by score
+   *
+   * @param <T>
+   * @param claz
+   * @param p
+   * @param start
+   * @param end
+   * @return
+   */
+  public <T> Set<T> scoreRange(Class<T> claz, String p, double start, double end)
+  {
+    try
+    {
+      EntityRepresentation representation = EntityRepresentation.forClass(claz);
+      Field f = representation.getField(p);
+      String table = representation.getTable();
+      String column = representation.getColumn(f.getName());
+      Set<String> s = store.scoreRange(table, column, f, start, end);
+      read++;
+      Set<T> r = new LinkedHashSet<T>(s.size());
+      for (String item : s)
+      {
+        r.add(this.get(claz, item));
+      }
+      return r;
+    } catch (Exception e)
+    {
+      LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
+    }
+    return null;
+  }
+
+  /**
    * index of rank
    *
    * @param claz
@@ -566,6 +672,17 @@ public class Rojo
     return this.index(claz, p, v, 0, -1);
   }
 
+  /**
+   * indexing with range(index sorted by createTime asc)
+   *
+   * @param <T>
+   * @param claz
+   * @param p
+   * @param v
+   * @param start
+   * @param end
+   * @return
+   */
   public <T> Set<T> index(Class<T> claz, String p, Object v, long start, long end)
   {
     try
@@ -658,7 +775,7 @@ public class Rojo
    * @param id
    * @return
    */
-  private Object getFromCache(Class claz, String id)
+  private <T> T getFromCache(Class<T> claz, String id)
   {
     readLock.lock();
     try
@@ -674,7 +791,7 @@ public class Rojo
           {
             hit++;
           }
-          return r;
+          return (T) r;
         }
       }
       miss++;
@@ -693,7 +810,7 @@ public class Rojo
    */
   public void evict(Class claz, String id)
   {
-    readLock.lock();
+    writeLock.lock();
     try
     {
       Map<String, SoftObjectReference<Object>> c = cache.get(claz);
@@ -703,7 +820,7 @@ public class Rojo
       }
     } finally
     {
-      readLock.unlock();
+      writeLock.unlock();
     }
   }
 
@@ -714,7 +831,7 @@ public class Rojo
    */
   public void clearCache(Class claz)
   {
-    readLock.lock();
+    writeLock.lock();
     try
     {
       Map<String, SoftObjectReference<Object>> c = cache.get(claz);
@@ -724,7 +841,7 @@ public class Rojo
       }
     } finally
     {
-      readLock.unlock();
+      writeLock.unlock();
     }
   }
 

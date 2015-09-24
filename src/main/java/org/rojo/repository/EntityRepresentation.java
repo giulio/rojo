@@ -27,6 +27,7 @@ public class EntityRepresentation
   private static final Map<String, EntityRepresentation> tableEntities;
 
   private boolean cacheable;
+  private boolean idCache;
   private String table;
   private Field id;
   private final Field[] fields;
@@ -69,6 +70,7 @@ public class EntityRepresentation
   {
     verifyEntityAnnotation(entityClass);
     cacheable = entityClass.getAnnotation(Entity.class).cache();
+    idCache = entityClass.getAnnotation(Entity.class).idCache();
     table = entityClass.getAnnotation(Entity.class).table();
     if (table.isEmpty())
     {
@@ -84,8 +86,11 @@ public class EntityRepresentation
     fieldMap.values().toArray(fields);
     for (int i = 0; i < columns.length; i++)
     {
-      columns[i] = fields[i].getAnnotation(Value.class).column();
-      if (columns[i].isEmpty())
+      if (fields[i].isAnnotationPresent(Value.class))
+      {
+        columns[i] = fields[i].getAnnotation(Value.class).column();
+      }
+      if (columns[i] == null || columns[i].isEmpty())
       {
         columns[i] = fields[i].getName();
       }
@@ -114,6 +119,7 @@ public class EntityRepresentation
           }
           f.setAccessible(true);
           id = f;
+          fieldMap.put(f.getName(), f);
           Id annotation = id.getAnnotation(Id.class);
           idGenerator = IdGenerator.getGenerator(annotation.generator());
           autoId = annotation.auto();
@@ -256,6 +262,16 @@ public class EntityRepresentation
   public void setCacheable(boolean cache)
   {
     this.cacheable = cache;
+  }
+
+  public void setIdCache(boolean idCache)
+  {
+    this.idCache = idCache;
+  }
+
+  public boolean isIdCache()
+  {
+    return idCache;
   }
 
   Object readProperty(Object entity, Field f)

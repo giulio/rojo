@@ -28,6 +28,7 @@ public class RedisFacade
   private static final String FOR_SORTED_KEY = "003sorted_key";
   private static final String FOR_UNIQUE_KEY = "004unique_key";
   private static final String FOR_INDEX_KEY = "005indexing_key";
+  private static final String NULL = "#*%$NULL@&%$#*{)}}(";//null
 
   public RedisFacade(Jedis jrClient)
   {
@@ -112,7 +113,7 @@ public class RedisFacade
         List<String> r = (List<String>) rs[i].get();
         for (String value : r)
         {
-          holder.add((T) decode((Class) ((java.lang.reflect.ParameterizedType) fields[i].getGenericType()).getActualTypeArguments()[0], value));
+          holder.add(decode((Class) ((java.lang.reflect.ParameterizedType) fields[i].getGenericType()).getActualTypeArguments()[0], value));
         }
         fields[i].set(entity, holder);
       } else if (Map.class.isAssignableFrom(fields[i].getType()))
@@ -124,12 +125,20 @@ public class RedisFacade
         {
           Class keyClaz = (Class) ts[0];
           Class valueClaz = (Class) ts[1];
-          map.put(decode(keyClaz, en.getKey()), decode(valueClaz, en.getValue()));
+          Object k = decode(keyClaz, en.getKey());
+          if (k != null)
+          {
+            map.put(k, decode(valueClaz, en.getValue()));
+          }
         }
         fields[i].set(entity, map);
       } else
       {
-        fields[i].set(entity, decode(fields[i].getType(), rs[i].get()));
+        Object temp = decode(fields[i].getType(), rs[i].get());
+        if (temp != null)
+        {
+          fields[i].set(entity, temp);
+        }
       }
     }
   }
@@ -154,9 +163,9 @@ public class RedisFacade
     return table + ":" + column + ":" + FOR_SORTED_KEY;
   }
 
-  private String keyForUnique(String table, String column)
+  private String keyForUnique(String table, String column, String v)
   {
-    return table + ":" + column + ":" + FOR_UNIQUE_KEY;
+    return table + ":" + column + ":" + v + ":" + FOR_UNIQUE_KEY;
   }
 
   private String keyForIndex(String table, String column, String v)
@@ -225,7 +234,13 @@ public class RedisFacade
   {
     try
     {
-      pipe.hset(keyForAllField(table, id).getBytes("UTF-8"), column.getBytes("UTF-8"), v);
+      if (v != null)
+      {
+        pipe.hset(keyForAllField(table, id).getBytes("UTF-8"), column.getBytes("UTF-8"), v);
+      } else
+      {
+        pipe.hdel(keyForAllField(table, id).getBytes("UTF-8"), column.getBytes("UTF-8"));
+      }
       return true;
     } catch (Exception e)
     {
@@ -242,21 +257,27 @@ public class RedisFacade
       {
         return false;
       }
-      pipe.hset(keyForAllField(table, id), column, v.toString());
-      if (annotation.sort())
+      if (v != null)
       {
-        final String key = keyForSorted(table, column);
-        pipe.zadd(key, toDouble(v), String.valueOf(id));
-        if (annotation.size() > 0)
+        pipe.hset(keyForAllField(table, id), column, v.toString());
+        if (annotation.sort())
         {
-          if (annotation.bigFirst())
+          final String key = keyForSorted(table, column);
+          pipe.zadd(key, toDouble(v), String.valueOf(id));
+          if (annotation.size() > 0)
           {
-            pipe.zremrangeByRank(key, 0, -annotation.size() - 1);
-          } else
-          {
-            pipe.zremrangeByRank(key, annotation.size(), -1);
+            if (annotation.bigFirst())
+            {
+              pipe.zremrangeByRank(key, 0, -annotation.size() - 1);
+            } else
+            {
+              pipe.zremrangeByRank(key, annotation.size(), -1);
+            }
           }
         }
+      } else
+      {
+        pipe.hdel(keyForAllField(table, id), column);
       }
       return true;
     } catch (Exception e)
@@ -275,9 +296,17 @@ public class RedisFacade
    */
   void writeCollection(String table, Collection<? extends Object> collection, String id, String column)
   {
-    for (Object value : collection)
+    String key = keyForField(table, id, column);
+    pipe.del(key);
+    if (collection != null)
     {
-      pipe.rpush(keyForField(table, id, column), value.toString());
+      String[] vs = new String[collection.size()];
+      int i = 0;
+      for (Object value : collection)
+      {
+        vs[i++] = value == null ? NULL : value.toString();
+      }
+      pipe.rpush(key, vs);
     }
   }
 
@@ -291,9 +320,20 @@ public class RedisFacade
    */
   void writeMap(String table, Map<Object, Object> map, String id, String column)
   {
-    for (Map.Entry<Object, Object> en : map.entrySet())
+    String key = keyForField(table, id, column);
+    pipe.del(key);
+    if (map != null)
     {
-      pipe.hset(keyForField(table, id, column), en.getKey().toString(), en.getValue().toString());
+      Map<String, String> m = new HashMap();
+      for (Map.Entry<Object, Object> en : map.entrySet())
+      {
+        Object k = en.getKey();
+        if (k != null)
+        {
+          m.put(k.toString(), en.getValue() == null ? NULL : en.getValue().toString());
+        }
+      }
+      pipe.hmset(key, m);
     }
   }
 
@@ -311,7 +351,7 @@ public class RedisFacade
       pipe.del(keyForField(table, id, column));
     }
     Value annotation = field.getAnnotation(Value.class);
-    if (annotation.sort())
+    if (annotation != null && annotation.sort())
     {
       pipe.zrem(keyForSorted(table, column), String.valueOf(id));
     }
@@ -329,12 +369,12 @@ public class RedisFacade
 
   boolean exists(String table, String id)
   {
-    return je.zscore(keyForAll(table), id) != null;
+    return je.exists(keyForAllField(table, id));
   }
 
   boolean uniqueExists(String table, String column, String v)
   {
-    return je.hexists(keyForUnique(table, column), v);
+    return je.exists(keyForUnique(table, column, v));
   }
 
   void flush()
@@ -354,40 +394,68 @@ public class RedisFacade
   {
     if (t == byte[].class)
     {
-      return (T) o;
+      return isNull(o) ? null : (T) o;
     }
     String v = (String) o;
-    if (t == Integer.class || t == int.class)
+    if (t == Integer.class)
     {
-      return isEmpty(v) ? (T) (Integer) 0 : (T) (Integer) Integer.parseInt(v);
+      return isNull(v) ? null : (T) (Integer) Integer.parseInt(v);
+    }
+    if (t == int.class)
+    {
+      return isNull(v) ? (T) new Integer(0) : (T) (Integer) Integer.parseInt(v);
     }
     if (t == String.class)
     {
-      return (T) v;
+      return isNull(v) ? null : (T) v;
     }
-    if (t == Long.class || t == long.class)
+    if (t == Long.class)
     {
-      return isEmpty(v) ? (T) (Long) 0L : (T) (Long) Long.parseLong(v);
+      return isNull(v) ? null : (T) (Long) Long.parseLong(v);
     }
-    if (t == Float.class || t == float.class)
+    if (t == long.class)
     {
-      return isEmpty(v) ? (T) (Float) 0f : (T) (Float) Float.parseFloat(v);
+      return isNull(v) ? (T) new Long(0) : (T) (Long) Long.parseLong(v);
     }
-    if (t == Double.class || t == double.class)
+    if (t == Float.class)
     {
-      return isEmpty(v) ? (T) (Double) 0.0 : (T) (Double) Double.parseDouble(v);
+      return isNull(v) ? null : (T) (Float) Float.parseFloat(v);
     }
-    if (t == Short.class || t == short.class)
+    if (t == float.class)
     {
-      return isEmpty(v) ? (T) (Short) (short) 0 : (T) (Short) Short.parseShort(v);
+      return isNull(v) ? (T) new Float(0) : (T) (Float) Float.parseFloat(v);
     }
-    if (t == Byte.class || t == byte.class)
+    if (t == Double.class)
     {
-      return isEmpty(v) ? (T) (Byte) (byte) 0 : (T) (Byte) Byte.parseByte(v);
+      return isNull(v) ? null : (T) (Double) Double.parseDouble(v);
     }
-    if (t == Boolean.class || t == boolean.class)
+    if (t == double.class)
     {
-      return isEmpty(v) ? (T) Boolean.FALSE : (T) (Boolean) Boolean.parseBoolean(v);
+      return isNull(v) ? (T) new Double(0) : (T) (Double) Double.parseDouble(v);
+    }
+    if (t == Short.class)
+    {
+      return isNull(v) ? null : (T) (Short) Short.parseShort(v);
+    }
+    if (t == short.class)
+    {
+      return isNull(v) ? (T) new Short((short) 0) : (T) (Short) Short.parseShort(v);
+    }
+    if (t == Byte.class)
+    {
+      return isNull(v) ? null : (T) (Byte) Byte.parseByte(v);
+    }
+    if (t == byte.class)
+    {
+      return isNull(v) ? (T) new Byte((byte) 0) : (T) (Byte) Byte.parseByte(v);
+    }
+    if (t == Boolean.class)
+    {
+      return isNull(v) ? null : (T) (Boolean) Boolean.parseBoolean(v);
+    }
+    if (t == boolean.class)
+    {
+      return isNull(v) ? (T) Boolean.FALSE : (T) (Boolean) Boolean.parseBoolean(v);
     }
     throw new InvalidTypeException("不支持的类型：" + t);
   }
@@ -421,9 +489,10 @@ public class RedisFacade
     throw new InvalidTypeException("不支持的类型：" + value.getClass());
   }
 
-  private static boolean isEmpty(String v)
+  private static boolean isNull(Object v)
   {
-    return v == null || v.isEmpty();
+    boolean r = (v == null || v.equals(NULL));
+    return r;
   }
 
   /**
@@ -448,6 +517,34 @@ public class RedisFacade
       } else
       {
         s = je.zrange(key, start, end);
+      }
+    }
+    return s;
+  }
+
+  /**
+   * range by score
+   *
+   * @param table
+   * @param column
+   * @param f
+   * @param start
+   * @param end
+   * @return
+   */
+  Set<String> scoreRange(String table, String column, Field f, double start, double end)
+  {
+    String key = this.keyForSorted(table, column);
+    Set<String> s = null;
+    Value annotation = f.getAnnotation(Value.class);
+    if (annotation != null && annotation.sort())
+    {
+      if (annotation.bigFirst())
+      {
+        s = je.zrevrangeByScore(key, start, end);
+      } else
+      {
+        s = je.zrangeByScore(key, start, end);
       }
     }
     return s;
@@ -493,7 +590,7 @@ public class RedisFacade
     {
       return false;
     }
-    long r = je.hsetnx(keyForUnique(table, column), v.toString(), id);
+    long r = je.setnx(keyForUnique(table, column, v.toString()), id);
     return r == 1;
   }
 
@@ -563,7 +660,7 @@ public class RedisFacade
   {
     try
     {
-      pipe.hdel(keyForUnique(table, column), unique.get(entity).toString());
+      pipe.del(keyForUnique(table, column, unique.get(entity).toString()));
     } catch (Exception e)
     {
     }
@@ -599,8 +696,8 @@ public class RedisFacade
 
   String unique(String table, String column, String v)
   {
-    String key = this.keyForUnique(table, column);
-    return je.hget(key, v);
+    String key = this.keyForUnique(table, column,v);
+    return je.get(key);
   }
 
   /**
@@ -626,7 +723,7 @@ public class RedisFacade
   Set<String> all(String table, Date start, Date end)
   {
     String key = keyForAll(table);
-    return je.zrangeByScore(key, start.getTime(), end.getTime());
+    return je.zrangeByScore(key, start == null ? 0 : start.getTime(), end == null ? System.currentTimeMillis() : end.getTime());
   }
 
   void addId(String table, String id)

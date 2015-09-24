@@ -10,7 +10,9 @@ import java.lang.annotation.Target;
 public @interface Entity
 {
 
-	boolean cache() default false;
+  boolean cache() default false;
 
-	String table() default "";
+  boolean idCache() default true;
+
+  String table() default "";
 }
