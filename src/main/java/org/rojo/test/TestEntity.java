@@ -10,7 +10,7 @@ import org.rojo.annotations.Entity;
 import org.rojo.annotations.Index;
 import org.rojo.annotations.Value;
 
-@Entity(table = "te", cache = false)
+@Entity(table = "te", cache = true)
 public class TestEntity extends BaseEntity
 {
 

@@ -1,17 +1,11 @@
 package org.rojo.repository;
 
-import java.lang.ref.ReferenceQueue;
-import java.lang.ref.SoftReference;
 import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.rojo.annotations.Index;
@@ -23,17 +17,8 @@ public class Rojo
 
   private static final Logger LOG = Logger.getLogger(Rojo.class.getName());
   private final RedisFacade store;
-  private static final Map<Class, Map<String, SoftObjectReference<Object>>> cache = new HashMap<Class, Map<String, SoftObjectReference<Object>>>();
-  private static final ReferenceQueue<SoftObjectReference<Object>> rq = new ReferenceQueue<SoftObjectReference<Object>>();
+  private static SoftCache cache;
   private static int TIMES_CACHE_CLEAR;
-  private static volatile int timeCache;
-  private static final ReadWriteLock lock = new ReentrantReadWriteLock();
-  private static final Lock readLock = lock.readLock();
-  private static final Lock writeLock = lock.writeLock();
-  private static volatile int cachedObjectCounter;
-  private static CacheoutListerner cacheoutListerner;
-  private static volatile long hit;
-  private static volatile long miss;
   private static volatile long read;
   private static volatile long write;
   private static volatile boolean cacheable;//cache?
@@ -48,6 +33,11 @@ public class Rojo
     {
       TIMES_CACHE_CLEAR = Integer.parseInt(System.getProperty("rojo.times.cache.clear", "15000"));
       cacheable = Boolean.parseBoolean(System.getProperty("rojo.cacheable", "false"));
+      if (cacheable)
+      {
+        cache = new SoftCache();
+        cache.setTIMES_CACHE_CLEAR(TIMES_CACHE_CLEAR);
+      }
     } catch (Exception e)
     {
       LOG.log(Level.WARNING, "property rojo.times.cache.clear is missing,15000 will be applied");
@@ -267,15 +257,12 @@ public class Rojo
           } else if (Map.class.isAssignableFrom(f.getType()))
           {
             store.writeMap(table, (Map) v, id, column);
+          } else if (f.getType() == byte[].class)//blob
+          {
+            store.writeBlob(table, id, column, (byte[]) v, f);
           } else
           {
-            if (f.getType() == byte[].class)//blob
-            {
-              store.writeBlob(table, id, column, (byte[]) v, f);
-            } else
-            {
-              store.update(table, id, column, v, f);
-            }
+            store.update(table, id, column, v, f);
           }
         }
         return true;
@@ -314,15 +301,12 @@ public class Rojo
           } else if (Map.class.isAssignableFrom(f.getType()))
           {
             store.writeMap(table, (Map) v, id, column);
+          } else if (f.getType() == byte[].class)//blob
+          {
+            store.writeBlob(table, id, column, (byte[]) v, f);
           } else
           {
-            if (f.getType() == byte[].class)//blob
-            {
-              store.writeBlob(table, id, column, (byte[]) v, f);
-            } else
-            {
-              store.update(table, id, column, v, f);
-            }
+            store.update(table, id, column, v, f);
           }
         }
         return true;
@@ -738,33 +722,9 @@ public class Rojo
    */
   private void cache(Object entity, String id)
   {
-    writeLock.lock();
-    try
+    if (cache != null)
     {
-      Map<String, SoftObjectReference<Object>> c = cache.get(entity.getClass());
-      if (c == null)
-      {
-        c = new HashMap<String, SoftObjectReference<Object>>();
-        cache.put(entity.getClass(), c);
-      }
-      c.put(id, new SoftObjectReference<Object>(entity, rq, id));
-      cachedObjectCounter++;
-      timeCache++;
-      if (timeCache >= TIMES_CACHE_CLEAR)
-      {
-        SoftObjectReference sr;
-        while ((sr = (SoftObjectReference) rq.poll()) != null)
-        {
-          c = cache.get(sr.claz);
-          c.remove(sr.id);
-          cachedObjectCounter--;
-          onCacheout(sr.claz, sr.id);
-        }
-        timeCache = 0;
-      }
-    } finally
-    {
-      writeLock.unlock();
+      cache.cache(entity, id);
     }
   }
 
@@ -777,29 +737,7 @@ public class Rojo
    */
   private <T> T getFromCache(Class<T> claz, String id)
   {
-    readLock.lock();
-    try
-    {
-      Map<String, SoftObjectReference<Object>> c = cache.get(claz);
-      if (c != null)
-      {
-        SoftReference<Object> sr = c.get(id);
-        if (sr != null)
-        {
-          Object r = sr.get();
-          if (r != null)
-          {
-            hit++;
-          }
-          return (T) r;
-        }
-      }
-      miss++;
-      return null;
-    } finally
-    {
-      readLock.unlock();
-    }
+    return cache == null ? null : cache.get(claz, id);
   }
 
   /**
@@ -808,19 +746,11 @@ public class Rojo
    * @param claz
    * @param id
    */
-  public void evict(Class claz, String id)
+  public static void evict(Class claz, String id)
   {
-    writeLock.lock();
-    try
+    if (cache != null)
     {
-      Map<String, SoftObjectReference<Object>> c = cache.get(claz);
-      if (c != null)
-      {
-        c.remove(id);
-      }
-    } finally
-    {
-      writeLock.unlock();
+      cache.evict(claz, id);
     }
   }
 
@@ -829,44 +759,22 @@ public class Rojo
    *
    * @param claz
    */
-  public void clearCache(Class claz)
+  public static void clearCache(Class claz)
   {
-    writeLock.lock();
-    try
+    if (cache != null)
     {
-      Map<String, SoftObjectReference<Object>> c = cache.get(claz);
-      if (c != null)
-      {
-        c.clear();
-      }
-    } finally
-    {
-      writeLock.unlock();
+      cache.clear(claz);
     }
   }
 
   /**
    * clear cache
    */
-  @SuppressWarnings("empty-statement")
   public static void clearCache()
   {
-    writeLock.lock();
-    try
+    if (cache != null)
     {
-      for (Map<String, SoftObjectReference<Object>> m : cache.values())
-      {
-        m.clear();
-      }
-      SoftObjectReference sr;
-      while ((sr = (SoftObjectReference) rq.poll()) != null)
-      {
-        onCacheout(sr.claz, sr.id);
-      }
-      cachedObjectCounter = 0;
-    } finally
-    {
-      writeLock.unlock();
+      cache.clear();
     }
   }
 
@@ -875,33 +783,22 @@ public class Rojo
    *
    * @return
    */
-  public static int getCachedObjectCounter()
+  public static long getCachedObjectCounter()
   {
-    return cachedObjectCounter;
+    return cache == null ? 0 : cache.cached();
   }
 
   public static void setCacheoutListerner(CacheoutListerner cacheoutListerner)
   {
-    Rojo.cacheoutListerner = cacheoutListerner;
+    if (cache != null)
+    {
+      cache.setCacheoutListerner(cacheoutListerner);
+    }
   }
 
   public static CacheoutListerner getCacheoutListerner()
   {
-    return cacheoutListerner;
-  }
-
-  /**
-   * cacheout
-   *
-   * @param claz
-   * @param id
-   */
-  private static void onCacheout(Class claz, String id)
-  {
-    if (cacheoutListerner != null)
-    {
-      cacheoutListerner.onCacheout(claz, id);
-    }
+    return cache == null ? null : cache.getCacheoutListerner();
   }
 
   private static boolean isEmpty(String id)
@@ -909,28 +806,14 @@ public class Rojo
     return id == null || id.isEmpty();
   }
 
-  private class SoftObjectReference<Object> extends SoftReference<Object>
-  {
-
-    public final String id;
-    public final Class claz;
-
-    public SoftObjectReference(Object r, ReferenceQueue q, String id)
-    {
-      super(r, q);
-      this.id = id;
-      this.claz = r.getClass();
-    }
-  }
-
   public static long hit()
   {
-    return hit;
+    return cache == null ? 0 : cache.hit();
   }
 
   public static long miss()
   {
-    return miss;
+    return cache == null ? 0 : cache.miss();
   }
 
   public static long read()
@@ -941,6 +824,11 @@ public class Rojo
   public static long write()
   {
     return write;
+  }
+
+  public static long cacheout()
+  {
+    return cache == null ? 0 : cache.cacheout();
   }
 
   public static boolean isCacheable()
@@ -954,6 +842,9 @@ public class Rojo
     if (!cacheable)
     {
       Rojo.clearCache();
+    } else if (cache == null)
+    {
+      cache = new SoftCache();
     }
   }
 

@@ -23,13 +23,11 @@ public class Test
 
   public static void main(String[] args) throws InterruptedException, UnsupportedEncodingException
   {
-    long os=System.currentTimeMillis();
-    int times = 10;
+    long os = System.currentTimeMillis();
+    int times = 100;
     Jedis je = new Jedis("localhost", 6379);
     je.auth("ssm123");
-    je.ping();
     Rojo re = new Rojo(je);
-    je.flushAll();
     new TestGenerator(je, "common:id").configue("common:id");//configue id generator
     for (int i = 1; i <= times; i++)
     {
@@ -57,8 +55,8 @@ public class Test
       ss.setT1(41);
       ss.setT2(20);
       ss.setContent("哈哈111".getBytes("UTF-8"));
-      re.updateAndFlush(ss, "t1", "t2","content");
-      ss=re.get(TestEntity.class, ss.getId());
+      re.updateAndFlush(ss, "t1", "t2", "content");
+      ss = re.get(TestEntity.class, ss.getId());
       System.out.println(ss);
       Thread.sleep(10);
     }
