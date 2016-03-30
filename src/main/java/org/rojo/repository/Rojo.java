@@ -1,5 +1,8 @@
 package org.rojo.repository;
 
+import java.lang.reflect.Constructor;
+import org.rojo.util.CacheoutListerner;
+import org.rojo.util.SoftCache;
 import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.Date;
@@ -10,6 +13,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.rojo.annotations.Index;
 import org.rojo.exceptions.RepositoryError;
+import org.rojo.util.Cache;
 import redis.clients.jedis.Jedis;
 
 public class Rojo
@@ -17,7 +21,7 @@ public class Rojo
 
   private static final Logger LOG = Logger.getLogger(Rojo.class.getName());
   private final RedisFacade store;
-  private static SoftCache cache;
+  private static Cache cache;
   private static int TIMES_CACHE_CLEAR;
   private static volatile long read;
   private static volatile long write;
@@ -33,14 +37,21 @@ public class Rojo
     {
       TIMES_CACHE_CLEAR = Integer.parseInt(System.getProperty("rojo.times.cache.clear", "15000"));
       cacheable = Boolean.parseBoolean(System.getProperty("rojo.cacheable", "false"));
+      String impl = System.getProperty("rojo.cache.impl", "org.rojo.util.LruCache");
+      int size = Integer.parseInt(System.getProperty("rojo.cache.size", "150000"));
       if (cacheable)
       {
-        cache = new SoftCache();
-        cache.setTIMES_CACHE_CLEAR(TIMES_CACHE_CLEAR);
+        Class c = Class.forName(impl);
+        Constructor con = c.getConstructor(Integer.class);
+        cache = (Cache) con.newInstance(size);
+        if (cache instanceof SoftCache)
+        {
+          ((SoftCache) cache).setTIMES_CACHE_CLEAR(TIMES_CACHE_CLEAR);
+        }
       }
     } catch (Exception e)
     {
-      LOG.log(Level.WARNING, "property rojo.times.cache.clear is missing,15000 will be applied");
+      LOG.log(Level.WARNING, "some property are missing,default values will be applied");
     }
   }
 
@@ -52,6 +63,16 @@ public class Rojo
   public Jedis getJedis()
   {
     return store.getJedis();
+  }
+
+  public static void setCache(Cache cache)
+  {
+    Rojo.cache = cache;
+  }
+
+  public static Cache getCache()
+  {
+    return cache;
   }
 
   /**
@@ -81,6 +102,52 @@ public class Rojo
     {
       LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
       return null;
+    }
+  }
+
+  /**
+   * all class size
+   *
+   * @param c
+   * @param start
+   * @param end
+   * @return
+   */
+  public long allSize(Class c, Date start, Date end)
+  {
+    try
+    {
+      EntityRepresentation representation = EntityRepresentation.forClass(c);
+      String table = representation.getTable();
+      Set<String> s = store.all(table, start, end);
+      read++;
+      return s.size();
+    } catch (Exception e)
+    {
+      LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
+      return -1;
+    }
+  }
+
+  /**
+   * all size
+   *
+   * @param c
+   * @return
+   */
+  public long allSize(Class c)
+  {
+    try
+    {
+      EntityRepresentation representation = EntityRepresentation.forClass(c);
+      String table = representation.getTable();
+      long l = store.allSize(table);
+      read++;
+      return l;
+    } catch (Exception e)
+    {
+      LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
+      return -1;
     }
   }
 
@@ -643,6 +710,31 @@ public class Rojo
   }
 
   /**
+   * index size
+   *
+   * @param claz
+   * @param p
+   * @param v
+   * @return
+   */
+  public long indexSize(Class claz, String p, Object v)
+  {
+    try
+    {
+      EntityRepresentation representation = EntityRepresentation.forClass(claz);
+      String table = representation.getTable();
+      String column = representation.getColumn(p);
+      long s = store.indexSize(table, column, v);
+      read++;
+      return s;
+    } catch (Exception e)
+    {
+      LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
+    }
+    return -1;
+  }
+
+  /**
    * the indexings
    *
    * @param <T>
@@ -763,7 +855,10 @@ public class Rojo
   {
     if (cache != null)
     {
-      cache.clear(claz);
+      if (cache instanceof SoftCache)
+      {
+        ((SoftCache) cache).clear(claz);
+      }
     }
   }
 
@@ -776,16 +871,6 @@ public class Rojo
     {
       cache.clear();
     }
-  }
-
-  /**
-   * cache size
-   *
-   * @return
-   */
-  public static long getCachedObjectCounter()
-  {
-    return cache == null ? 0 : cache.cached();
   }
 
   public static void setCacheoutListerner(CacheoutListerner cacheoutListerner)
@@ -806,16 +891,6 @@ public class Rojo
     return id == null || id.isEmpty();
   }
 
-  public static long hit()
-  {
-    return cache == null ? 0 : cache.hit();
-  }
-
-  public static long miss()
-  {
-    return cache == null ? 0 : cache.miss();
-  }
-
   public static long read()
   {
     return read;
@@ -824,11 +899,6 @@ public class Rojo
   public static long write()
   {
     return write;
-  }
-
-  public static long cacheout()
-  {
-    return cache == null ? 0 : cache.cacheout();
   }
 
   public static boolean isCacheable()
@@ -844,7 +914,22 @@ public class Rojo
       Rojo.clearCache();
     } else if (cache == null)
     {
-      cache = new SoftCache();
+      try
+      {
+        TIMES_CACHE_CLEAR = Integer.parseInt(System.getProperty("rojo.times.cache.clear", "15000"));
+        String impl = System.getProperty("rojo.cache.impl", "org.rojo.util.LruCache");
+        int size = Integer.parseInt(System.getProperty("rojo.cache.size", "150000"));
+        Class c = Class.forName(impl);
+        Constructor con = c.getConstructor(Integer.class);
+        cache = (Cache) con.newInstance(size);
+        if (cache instanceof SoftCache)
+        {
+          ((SoftCache) cache).setTIMES_CACHE_CLEAR(TIMES_CACHE_CLEAR);
+        }
+      } catch (Exception e)
+      {
+        LOG.log(Level.WARNING, "some property are missing,default values will be applied");
+      }
     }
   }
 

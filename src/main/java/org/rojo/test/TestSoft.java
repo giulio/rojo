@@ -30,6 +30,7 @@ public class TestSoft
       {
         sum++;
         c.remove(sr.id);
+        System.out.println(sr.id+" out");
       }
       if (sum > 0)
       {
@@ -43,7 +44,7 @@ public class TestSoft
 
     public Enty()
     {
-      content = new byte[1024 * 1024];
+      content = new byte[100 * 1024];
     }
 
     private byte[] content;

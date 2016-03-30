@@ -610,15 +610,12 @@ public class RedisFacade
     } else if (Map.class.isAssignableFrom(field.getType()))
     {
       return pipe.hgetAll(keyForField(table, id, column));
+    } else if (field.getType() == byte[].class)
+    {
+      return pipe.hget(keyForAllField(table, id).getBytes("UTF-8"), column.getBytes("UTF-8"));
     } else
     {
-      if (field.getType() == byte[].class)
-      {
-        return pipe.hget(keyForAllField(table, id).getBytes("UTF-8"), column.getBytes("UTF-8"));
-      } else
-      {
-        return pipe.hget(keyForAllField(table, id), column);
-      }
+      return pipe.hget(keyForAllField(table, id), column);
     }
   }
 
@@ -680,6 +677,20 @@ public class RedisFacade
   }
 
   /**
+   * index size
+   *
+   * @param table
+   * @param column
+   * @param v
+   * @return
+   */
+  long indexSize(String table, String column, Object v)
+  {
+    String key = keyForIndex(table, column, v.toString());
+    return je.zcard(key);
+  }
+
+  /**
    * indexing ids
    *
    * @param claz
@@ -696,7 +707,7 @@ public class RedisFacade
 
   String unique(String table, String column, String v)
   {
-    String key = this.keyForUnique(table, column,v);
+    String key = this.keyForUnique(table, column, v);
     return je.get(key);
   }
 
@@ -726,6 +737,18 @@ public class RedisFacade
     return je.zrangeByScore(key, start == null ? 0 : start.getTime(), end == null ? System.currentTimeMillis() : end.getTime());
   }
 
+  /**
+   * all size
+   *
+   * @param table
+   * @return
+   */
+  long allSize(String table)
+  {
+    String key = keyForAll(table);
+    return je.zcard(key);
+  }
+
   void addId(String table, String id)
   {
     String key = keyForAll(table);
@@ -753,4 +776,5 @@ public class RedisFacade
   {
     return je;
   }
+
 }

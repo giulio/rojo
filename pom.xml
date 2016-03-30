@@ -1,91 +1,109 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-
-  <groupId>org.rojo</groupId>
+  <groupId>org.beykery</groupId>
   <artifactId>rojo</artifactId>
-  <version>1.0</version>
+  <version>1.0.3</version>
   <packaging>jar</packaging>
-
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.source>1.7</maven.compiler.source>
+    <maven.compiler.target>1.7</maven.compiler.target>
+  </properties>
   <name>rojo</name>
-  <url>http://maven.apache.org</url>
-  <build>
-    <plugins>
-      <plugin>
-        <version>2.3.2</version>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <compilerVersion>1.6</compilerVersion>
-          <fork>true</fork>
-          <source>1.6</source>
-          <target>1.6</target>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <version>2.15</version>
-        <configuration>
-          <includes>
-            <include>**/*Test.java</include>
-          </includes>
-          <parallel>class</parallel>
-        </configuration>
-        <executions>
-          <execution>
-            <id>surefire-it</id>
-            <phase>integration-test</phase>
-            <goals>
-              <goal>test</goal>
-            </goals>
-            <configuration>
-              <includes>
-                <include>**/*TestInt.java</include>
-              </includes>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
-  </build>
-
-
+  <description>
+    rojo is a orm lib for redis . this release is a enhancement fork from https://github.com/giulio/rojo . 
+  </description>
+  <url>
+    http://git.oschina.net/beykery/rojo
+  </url>
+  <licenses>
+    <license>
+      <name>The Apache Software License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <name>beykery</name>
+      <email>beykery@sina.com</email>
+    </developer>
+  </developers>
+  <scm>
+    <connection>scm:git:git@git.oschina.net:beykery/rojo.git</connection>
+    <developerConnection>scm:git:git@git.oschina.net:beykery/rojo.git</developerConnection>
+    <url>git@git.oschina.net:beykery/rojo.git</url>
+  </scm>
   <profiles>
     <profile>
-      <id>integration-tests</id>
+      <id>oss</id>
       <build>
         <plugins>
           <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-surefire-plugin</artifactId>
+            <groupId>org.sonatype.plugins</groupId>
+            <artifactId>nexus-staging-maven-plugin</artifactId>
+            <version>1.6.6</version>
+            <extensions>true</extensions>
             <configuration>
-              <includes>
-                <include>**/*TestInt.java</include>
-                <include>**/*Test.java</include>
-              </includes>
+              <serverId>oss</serverId>
+              <nexusUrl>https://oss.sonatype.org/</nexusUrl>
+              <autoReleaseAfterClose>true</autoReleaseAfterClose>
             </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-source-plugin</artifactId>
+            <version>2.4</version>
+            <executions>
+              <execution>
+                <id>attach-sources</id>
+                <goals>
+                  <goal>jar-no-fork</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <version>2.10.3</version>
+            <executions>
+              <execution>
+                <id>attach-javadocs</id>
+                <goals>
+                  <goal>jar</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>1.6</version>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>sign</goal>
+                </goals>
+              </execution>
+            </executions>
           </plugin>
         </plugins>
       </build>
+      <distributionManagement>
+        <snapshotRepository>
+          <id>oss</id>
+          <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+        </snapshotRepository>
+        <repository>
+          <id>oss</id>
+          <url>https://oss.sonatype.org/service/local/staging/deploy/maven2</url>
+        </repository>
+      </distributionManagement>
     </profile>
   </profiles>
-
-  <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-  </properties>
-
-  <repositories>
-    <repository>
-      <id>repo-mirror</id>
-      <url>http://maven.net.cn/content/groups/public/</url>
-    </repository>
-    <repository>
-      <id>google-maven-repository</id>
-      <name>Google Maven Repository</name>
-      <url>http://google-maven-repository.googlecode.com/svn/repository/</url>
-    </repository>
-  </repositories>
-
   <dependencies>
     <dependency>
       <groupId>redis.clients</groupId>
@@ -93,29 +111,5 @@
       <version>2.8.0</version>
       <type>jar</type>
     </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-      <version>1.7.13</version>
-    </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-log4j12</artifactId>
-      <version>1.7.13</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.12</version>
-      <scope>test</scope>
-    </dependency>
   </dependencies>
-	
-  <distributionManagement>
-    <repository>
-      <id>beykery</id>
-      <url>http://localhost:8081/nexus/content/repositories/beykery</url>
-    </repository>
-  </distributionManagement>
 </project>
