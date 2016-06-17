@@ -147,8 +147,8 @@ List<Long> rank(Class claz, String p, long start, long end)方法用于获取排
 ```xml
   <dependency>
       <groupId>org.beykery</groupId>
-      <artifactId>cocosocket</artifactId>
-      <version>1.0.5</version>
+      <artifactId>rojo</artifactId>
+      <version>1.0.6</version>
   </dependency>
 ```
 
