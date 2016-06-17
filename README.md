@@ -142,6 +142,15 @@ List<Long> rank(Class claz, String p, long start, long end)方法用于获取排
     
 	另外值得一提的还有缓存机制（Entity注释的Cache属性为true则开启缓存），当写入和获取一个对象后，
 此对象会立即进入缓存，以便于下次获取时，有更好的效率。
+坐标：
+
+```xml
+  <dependency>
+      <groupId>org.beykery</groupId>
+      <artifactId>cocosocket</artifactId>
+      <version>1.0.5</version>
+  </dependency>
+```
 
 ## 结语
 
