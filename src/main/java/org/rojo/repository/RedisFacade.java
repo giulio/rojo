@@ -724,6 +724,33 @@ public class RedisFacade
   }
 
   /**
+   * keys
+   *
+   *
+   * @param table
+   * @return
+   */
+  Set<String> keys(String table)
+  {
+    return je.keys(table + "*");
+  }
+
+  /**
+   * keys
+   *
+   *
+   * @param table
+   * @return
+   */
+  void delKeys(String table)
+  {
+    Set<String> ks = je.keys(table + "*");
+    String[] kks = new String[ks.size()];
+    ks.toArray(kks);
+    je.del(kks);
+  }
+
+  /**
    * the collection of entities create between start and end
    *
    * @param c

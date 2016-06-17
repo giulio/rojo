@@ -37,6 +37,13 @@ public interface Cache
   public void evict(Class claz, String id);
 
   /**
+   * evict objects
+   *
+   * @param claz
+   */
+  public void evict(Class claz);
+
+  /**
    * clean the cache
    *
    */

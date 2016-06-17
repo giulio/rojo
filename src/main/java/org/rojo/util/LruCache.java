@@ -8,6 +8,9 @@ import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.lang.ref.WeakReference;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * lrucache
@@ -18,6 +21,7 @@ public class LruCache implements Cache
 {
 
   private final ConcurrentHashMap<Object, CacheEntry> map;
+  private final Map<Class, Set<String>> keys;
   private final int upperWaterMark, lowerWaterMark;
   private final ReentrantLock markAndSweepLock = new ReentrantLock(true);
   private boolean isCleaning = false;  // not volatile... piggybacked on other volatile vars
@@ -41,6 +45,7 @@ public class LruCache implements Cache
       throw new IllegalArgumentException("lowerWaterMark must be  < upperWaterMark");
     }
     map = new ConcurrentHashMap<>(initialSize);
+    keys = new HashMap<>();
     newThreadForCleanup = runNewThreadForCleanup;
     this.upperWaterMark = upperWaterMark;
     this.lowerWaterMark = lowerWaterMark;
@@ -81,17 +86,6 @@ public class LruCache implements Cache
     }
     e.lastAccessed = stats.accessCounter.incrementAndGet();
     return e.value;
-  }
-
-  private Object remove(String key)
-  {
-    CacheEntry cacheEntry = map.remove(key);
-    if (cacheEntry != null)
-    {
-      stats.size.decrementAndGet();
-      return cacheEntry.value;
-    }
-    return null;
   }
 
   private Object put(String key, Object val)
@@ -216,12 +210,14 @@ public class LruCache implements Cache
         // Collect these entries to avoid another full pass... this is wasted
         // effort if enough entries are normally removed in this first pass.
         // An alternate impl could make a full second pass.
-         if (eSize < eset.length - 1)
+        {
+          if (eSize < eset.length - 1)
           {
             eset[eSize++] = ce;
             newNewestEntry = Math.max(thisEntry, newNewestEntry);
             newOldestEntry = Math.min(thisEntry, newOldestEntry);
           }
+        }
       }
 
       // System.out.println("items removed:" + numRemoved + " numKept=" + numKept + " esetSz="+ eSize + " sz-numRemoved=" + (sz-numRemoved));
@@ -359,7 +355,15 @@ public class LruCache implements Cache
   @Override
   public void cache(Object entity, String id)
   {
-    this.put(entity.getClass().getName() + ":" + id, entity);
+    String key = entity.getClass().getName() + ":" + id;
+    this.put(key, entity);
+    Set<String> set = keys.get(entity.getClass());
+    if (set == null)
+    {
+      set = new HashSet<>();
+      keys.put(entity.getClass(), set);
+    }
+    set.add(key);
   }
 
   @Override
@@ -372,6 +376,16 @@ public class LruCache implements Cache
   public void evict(Class claz, String id)
   {
     this.evictEntry(claz.getName() + ":" + id);
+  }
+
+  @Override
+  public void evict(Class claz)
+  {
+    Set<String> set = keys.remove(claz);
+    for (String k : set)
+    {
+      this.evictEntry(k);
+    }
   }
 
   @Override
@@ -451,6 +465,14 @@ public class LruCache implements Cache
     if (o == null)
     {
       return;
+    }
+    try
+    {
+      int index = key.indexOf(':');
+      Set<String> set = keys.get(Class.forName(key.substring(0, index)));
+      set.remove(key);
+    } catch (Exception e)
+    {
     }
     stats.size.decrementAndGet();
     stats.evictionCounter.incrementAndGet();

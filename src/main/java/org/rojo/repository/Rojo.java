@@ -42,7 +42,7 @@ public class Rojo
       if (cacheable)
       {
         Class c = Class.forName(impl);
-        Constructor con = c.getConstructor(Integer.class);
+        Constructor con = c.getConstructor(int.class);
         cache = (Cache) con.newInstance(size);
         if (cache instanceof SoftCache)
         {
@@ -550,11 +550,34 @@ public class Rojo
    */
   public void deleteAndFlush(Class claz, String id)
   {
-    this.evict(claz, id);
     Object temp = this.get(claz, id);
     if (temp != null)
     {
       this.deleteAndFlush(temp);
+    }
+  }
+
+  /**
+   * delete by class
+   *
+   * @param claz
+   */
+  public void deleteAndFlush(Class claz)
+  {
+    try
+    {
+      EntityRepresentation representation = EntityRepresentation.forClass(claz);
+      String table = representation.getTable();
+      store.delKeys(table);
+      read++;
+      write++;
+      if (Rojo.cacheable && representation.isCacheable())
+      {
+        cache.evict(claz);
+      }
+    } catch (Exception e)
+    {
+      LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
     }
   }
 

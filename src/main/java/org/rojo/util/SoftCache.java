@@ -156,6 +156,12 @@ public class SoftCache implements Cache
     }
   }
 
+  @Override
+  public void evict(Class claz)
+  {
+    this.clear(claz);
+  }
+
   /**
    * evict entites of claz
    *
