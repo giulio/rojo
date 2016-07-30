@@ -1,5 +1,7 @@
 package org.rojo.repository;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import java.lang.reflect.Constructor;
 import org.rojo.util.CacheoutListerner;
 import org.rojo.util.SoftCache;
@@ -42,7 +44,7 @@ public class Rojo
       if (cacheable)
       {
         Class c = Class.forName(impl);
-        Constructor con = c.getConstructor(Integer.class);
+        Constructor con = c.getConstructor(int.class);
         cache = (Cache) con.newInstance(size);
         if (cache instanceof SoftCache)
         {
@@ -100,7 +102,8 @@ public class Rojo
       return r;
     } catch (Exception e)
     {
-      LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
+      store.reset();
+      LOG.log(Level.SEVERE, "rojo error :{0}", stackTrace(e));
       return null;
     }
   }
@@ -124,7 +127,8 @@ public class Rojo
       return s.size();
     } catch (Exception e)
     {
-      LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
+      store.reset();
+      LOG.log(Level.SEVERE, "rojo error :{0}", stackTrace(e));
       return -1;
     }
   }
@@ -146,7 +150,8 @@ public class Rojo
       return l;
     } catch (Exception e)
     {
-      LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
+      store.reset();
+      LOG.log(Level.SEVERE, "rojo error :{0}", stackTrace(e));
       return -1;
     }
   }
@@ -176,7 +181,8 @@ public class Rojo
       return r;
     } catch (Exception e)
     {
-      LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
+      store.reset();
+      LOG.log(Level.SEVERE, "rojo error :{0}", stackTrace(e));
       return null;
     }
   }
@@ -198,7 +204,8 @@ public class Rojo
       return store.createTime(table, id);
     } catch (Exception e)
     {
-      LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
+      store.reset();
+      LOG.log(Level.SEVERE, "rojo error :{0}", stackTrace(e));
       return null;
     }
   }
@@ -291,7 +298,8 @@ public class Rojo
       return id;
     } catch (Exception e)
     {
-      LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
+      store.reset();
+      LOG.log(Level.SEVERE, "rojo error :{0}", stackTrace(e));
       return null;
     }
   }
@@ -336,7 +344,8 @@ public class Rojo
       }
     } catch (Exception e)
     {
-      LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
+      store.reset();
+      LOG.log(Level.SEVERE, "rojo error :{0}", stackTrace(e));
     }
     return false;
   }
@@ -380,7 +389,8 @@ public class Rojo
       }
     } catch (Exception e)
     {
-      LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
+      store.reset();
+      LOG.log(Level.SEVERE, "rojo error :{0}", stackTrace(e));
     }
     return false;
   }
@@ -455,8 +465,8 @@ public class Rojo
       return entity;
     } catch (Exception e)
     {
-      e.printStackTrace();
-      LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
+      store.reset();
+      LOG.log(Level.SEVERE, "rojo error :{0}", stackTrace(e));
       throw new RepositoryError(e);
     }
   }
@@ -478,7 +488,8 @@ public class Rojo
       return store.exists(table, id);
     } catch (Exception e)
     {
-      LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
+      store.reset();
+      LOG.log(Level.SEVERE, "rojo error :{0}", stackTrace(e));
     }
     return false;
   }
@@ -525,7 +536,8 @@ public class Rojo
       }
     } catch (Exception e)
     {
-      LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
+      store.reset();
+      LOG.log(Level.SEVERE, "rojo error :{0}", stackTrace(e));
     }
     return null;
   }
@@ -550,11 +562,35 @@ public class Rojo
    */
   public void deleteAndFlush(Class claz, String id)
   {
-    this.evict(claz, id);
     Object temp = this.get(claz, id);
     if (temp != null)
     {
       this.deleteAndFlush(temp);
+    }
+  }
+
+  /**
+   * delete by class
+   *
+   * @param claz
+   */
+  public void deleteAndFlush(Class claz)
+  {
+    try
+    {
+      EntityRepresentation representation = EntityRepresentation.forClass(claz);
+      String table = representation.getTable();
+      store.delKeys(table);
+      read++;
+      write++;
+      if (Rojo.cacheable && representation.isCacheable())
+      {
+        cache.evict(claz);
+      }
+    } catch (Exception e)
+    {
+      store.reset();
+      LOG.log(Level.SEVERE, "rojo error :{0}", stackTrace(e));
     }
   }
 
@@ -614,7 +650,8 @@ public class Rojo
       }
     } catch (Exception e)
     {
-      LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
+      store.reset();
+      LOG.log(Level.SEVERE, "rojo error :{0}", stackTrace(e));
     }
   }
 
@@ -646,7 +683,8 @@ public class Rojo
       return r;
     } catch (Exception e)
     {
-      LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
+      store.reset();
+      LOG.log(Level.SEVERE, "rojo error :{0}", e.getMessage());
     }
     return null;
   }
@@ -679,7 +717,8 @@ public class Rojo
       return r;
     } catch (Exception e)
     {
-      LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
+      store.reset();
+      LOG.log(Level.SEVERE, "rojo error :{0}", e.getMessage());
     }
     return null;
   }
@@ -704,7 +743,8 @@ public class Rojo
       return store.rank(table, column, f, id);
     } catch (Exception e)
     {
-      LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
+      store.reset();
+      LOG.log(Level.SEVERE, "rojo error :{0}", stackTrace(e));
       return -1;
     }
   }
@@ -729,7 +769,8 @@ public class Rojo
       return s;
     } catch (Exception e)
     {
-      LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
+      store.reset();
+      LOG.log(Level.SEVERE, "rojo error :{0}", stackTrace(e));
     }
     return -1;
   }
@@ -776,7 +817,8 @@ public class Rojo
       return r;
     } catch (Exception e)
     {
-      LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
+      store.reset();
+      LOG.log(Level.SEVERE, "rojo error :{0}", stackTrace(e));
     }
     return null;
   }
@@ -802,7 +844,8 @@ public class Rojo
       return id == null ? null : this.get(claz, id);
     } catch (Exception e)
     {
-      LOG.log(Level.WARNING, "rojo error :{0}", e.getMessage());
+      store.reset();
+      LOG.log(Level.SEVERE, "rojo error :{0}", stackTrace(e));
     }
     return null;
   }
@@ -928,9 +971,29 @@ public class Rojo
         }
       } catch (Exception e)
       {
-        LOG.log(Level.WARNING, "some property are missing,default values will be applied");
+        LOG.log(Level.SEVERE, "some property are missing,default values will be applied");
       }
     }
   }
 
+  /**
+   * exception trace
+   *
+   * @param e
+   * @return
+   */
+  public static String stackTrace(Exception e)
+  {
+    try
+    {
+      ByteArrayOutputStream baos = new ByteArrayOutputStream();
+      PrintStream ps = new PrintStream(baos, true, "utf-8");
+      e.printStackTrace(ps);
+      return baos.toString();
+    } catch (Exception ex)
+    {
+      LOG.log(Level.SEVERE, "stackTrace error " + ex.getMessage());
+      return null;
+    }
+  }
 }
