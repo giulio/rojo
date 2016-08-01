@@ -52,7 +52,7 @@ public class BaseEntity {
 查看是否已经有一个与此对象相同（equal）的name属性的BaseEntity存在，如存在则持久化失败
     下面再看另一个Entity。
 	
-
+```java
 @Entity(Cache=true)
 public class TestEntity extends BaseEntity {
 
@@ -97,8 +97,8 @@ public class TestEntity extends BaseEntity {
         this.list = strings;
     }
 
-}
-    
+} 
+``` 
 	
 	这个TestEntity是继承自BaseEntity,因此id和name与BaseEntity相同不在赘述。此外此类
 拥有list、set、map和age四个属性，list、set、map分别是元素类型为基本类型的集合类，也
@@ -107,13 +107,15 @@ size，用来表达持久化时按照此属性值排序到一个有序列表里�
 bigFirst指定排序是按照从大到小的顺序，size指明排序列表的总长度（此例中排序列表长100）
 
     看一下如何持久化TestEntity到redis：
+	```java
 	    Jedis je = new Jedis("localhost", 6379);
         je.auth("4swardsman");
         je.ping();
         je.flushAll();
         Repository re = new Repository(je);
+		```
 	首先就是创建一个Repository（指定Jedis对象）。很简单。
-	
+	```java
 	    TestEntity ss = new TestEntity();
         ss.setName("test" + i);
         ss.setAge(i);
@@ -126,7 +128,7 @@ bigFirst指定排序是按照从大到小的顺序，size指明排序列表的�
         map.put("a", 1);
         map.put("b", 2);
         re.writeAndFlush(ss);
-		
+		```
 	以上就是初始化一个TestEntity并设置好各属性，最后调用Repository的writeAndFlush
 方法写入redis。如果写入成功，返回的long值就是ss对象的id（>0）并且ss的id属性会被正确
 赋值;如果失败则返回值<=0
