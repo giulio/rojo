@@ -24,8 +24,8 @@ public class SoftCache implements Cache
   private final ReadWriteLock lock = new ReentrantReadWriteLock();
   private final Lock readLock = lock.readLock();
   private final Lock writeLock = lock.writeLock();
-  private final Map<Class, Map<String, SoftObjectReference<Object>>> cache = new HashMap<Class, Map<String, SoftObjectReference<Object>>>();
-  private final ReferenceQueue<SoftObjectReference<Object>> rq = new ReferenceQueue<SoftObjectReference<Object>>();
+  private final Map<Class, Map<String, SoftObjectReference<Object>>> cache = new HashMap<>();
+  private final ReferenceQueue<SoftObjectReference<Object>> rq = new ReferenceQueue<>();
   private final Stats stats = new Stats();
 
   public SoftCache(int size)
@@ -67,10 +67,10 @@ public class SoftCache implements Cache
       Map<String, SoftObjectReference<Object>> c = cache.get(entity.getClass());
       if (c == null)
       {
-        c = new HashMap<String, SoftObjectReference<Object>>();
+        c = new HashMap<>();
         cache.put(entity.getClass(), c);
       }
-      Object old = c.put(id, new SoftObjectReference<Object>(entity, rq, id));
+      Object old = c.put(id, new SoftObjectReference<>(entity, rq, id));
       int currentSize;
       if (old == null)
       {

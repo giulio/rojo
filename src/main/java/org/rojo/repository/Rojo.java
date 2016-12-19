@@ -94,7 +94,7 @@ public class Rojo
       String table = representation.getTable();
       Set<String> s = store.all(table, start, end);
       read++;
-      Set<T> r = new LinkedHashSet<T>(s.size());
+      Set<T> r = new LinkedHashSet<>(s.size());
       for (String item : s)
       {
         r.add(this.get(c, item));
@@ -173,7 +173,7 @@ public class Rojo
       String table = representation.getTable();
       Set<String> s = store.all(table, start, end);
       read++;
-      Set<T> r = new LinkedHashSet<T>(s.size());
+      Set<T> r = new LinkedHashSet<>(s.size());
       for (String item : s)
       {
         r.add(this.get(c, item));
@@ -223,6 +223,11 @@ public class Rojo
     {
       store.flush();
       write++;
+      EntityRepresentation representation = EntityRepresentation.forClass(entity.getClass());
+      if (Rojo.cacheable && representation.isCacheable())
+      {
+        cache(entity, id);
+      }
     }
     return id;
   }
@@ -675,7 +680,7 @@ public class Rojo
       String column = representation.getColumn(f.getName());
       Set<String> s = store.range(table, column, f, start, end);
       read++;
-      Set<T> r = new LinkedHashSet<T>(s.size());
+      Set<T> r = new LinkedHashSet<>(s.size());
       for (String item : s)
       {
         r.add(this.get(claz, item));
@@ -709,7 +714,7 @@ public class Rojo
       String column = representation.getColumn(f.getName());
       Set<String> s = store.scoreRange(table, column, f, start, end);
       read++;
-      Set<T> r = new LinkedHashSet<T>(s.size());
+      Set<T> r = new LinkedHashSet<>(s.size());
       for (String item : s)
       {
         r.add(this.get(claz, item));
@@ -809,7 +814,7 @@ public class Rojo
       String column = representation.getColumn(p);
       Set<String> s = store.index(table, column, v, start, end);
       read++;
-      Set<T> r = new LinkedHashSet<T>(s.size());
+      Set<T> r = new LinkedHashSet<>(s.size());
       for (String item : s)
       {
         r.add(this.get(claz, item));

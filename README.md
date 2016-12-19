@@ -18,7 +18,7 @@ rojo是为了简化对象持久化到redis时的操作的，它提供了几个�
 ## 使用
 
 直接上代码：
-
+```java
 @Entity
 public class BaseEntity {
 
@@ -40,7 +40,7 @@ public class BaseEntity {
     }
 
 }
-
+```
 
     这个BaseEntity使用了几个annotation。Entity表示此对象可被持久化到redis；Id指定了此类
 对象的唯一id，Id拥有Generator属性，用来定制id生成策略，默认为空字符串，表示需要用户自行
@@ -97,8 +97,8 @@ public class TestEntity extends BaseEntity {
         this.list = strings;
     }
 
-} 
-``` 
+}
+```   
 	
 	这个TestEntity是继承自BaseEntity,因此id和name与BaseEntity相同不在赘述。此外此类
 拥有list、set、map和age四个属性，list、set、map分别是元素类型为基本类型的集合类，也
@@ -107,7 +107,7 @@ size，用来表达持久化时按照此属性值排序到一个有序列表里�
 bigFirst指定排序是按照从大到小的顺序，size指明排序列表的总长度（此例中排序列表长100）
 
     看一下如何持久化TestEntity到redis：
-	```java
+	```
 	    Jedis je = new Jedis("localhost", 6379);
         je.auth("4swardsman");
         je.ping();
@@ -150,7 +150,7 @@ List<Long> rank(Class claz, String p, long start, long end)方法用于获取排
   <dependency>
       <groupId>org.beykery</groupId>
       <artifactId>rojo</artifactId>
-      <version>1.0.9</version>
+      <version>1.1.0</version>
   </dependency>
 ```
 
