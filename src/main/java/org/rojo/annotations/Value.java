@@ -7,6 +7,16 @@ import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.FIELD)
-public @interface Value {
+public @interface Value
+{
 
+	String column() default "";
+
+	boolean unique() default false;
+
+	boolean sort() default false;
+
+	boolean bigFirst() default false;
+
+	long size() default 0;
 }

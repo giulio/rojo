@@ -1,80 +1,308 @@
 package org.rojo.repository;
 
-import org.rojo.annotations.Reference;
 import org.rojo.annotations.Value;
 import org.rojo.exceptions.InvalidTypeException;
-import org.rojo.repository.utils.IdUtil;
-
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import org.rojo.annotations.Entity;
+import org.rojo.annotations.Id;
+import org.rojo.annotations.Index;
+import org.rojo.exceptions.RojoException;
 
 /**
- * Encapsulate an entity.
- * Provide accessors for @Id and @Attributes.
+ * Encapsulate an entity. Provide accessors for @Id and @Value.
  *
- * Entities representation are cached since instantiation requires
- * access to Java reflection methods (time consuming)
+ * Entities representation are cached since instantiation requires access to
+ * Java reflection methods (time consuming)
  */
-public class EntityRepresentation {
+public class EntityRepresentation
+{
 
-    private static EntityValidator validator  = new AnnotationValidator();
+  private static final Map<Class<? extends Object>, EntityRepresentation> knownEntities;
+  private static final Map<String, EntityRepresentation> tableEntities;
 
-    private static Map<Class<? extends Object>, EntityRepresentation> knownEntities;
-    static {
-        knownEntities = new HashMap<Class<? extends Object>, EntityRepresentation>();
+  private boolean cacheable;
+  private boolean idCache;
+  private String table;
+  private Field id;
+  private final Field[] fields;
+  private final String[] columns;
+  private Field unique;
+  private final Map<String, Field> fieldMap = new HashMap<String, Field>();
+  private final Map<String, String> columnMap = new HashMap<String, String>();
+  private final List<Field> indexes = new ArrayList<Field>();
+  private IdGenerator idGenerator;
+  private boolean autoId;
+
+  static
+  {
+    knownEntities = new HashMap<Class<? extends Object>, EntityRepresentation>();
+    tableEntities = new HashMap<String, EntityRepresentation>();
+  }
+
+  public static EntityRepresentation forClass(Class<? extends Object> entityClass)
+  {
+    if (knownEntities.containsKey(entityClass))
+    {
+      return knownEntities.get(entityClass);
     }
-
-    private Field id;
-    private List<Field> values = new ArrayList<Field>();
-    private List<Field> references = new ArrayList<Field>();
-
-    public static EntityRepresentation forClass(Class<? extends Object> entityClass) {
-        if (knownEntities.containsKey(entityClass)) return knownEntities.get(entityClass);
-        EntityRepresentation entityRepresentation = new EntityRepresentation(entityClass);
-        knownEntities.put(entityClass, entityRepresentation);
-        return entityRepresentation;
+    EntityRepresentation entityRepresentation = new EntityRepresentation(entityClass);
+    knownEntities.put(entityClass, entityRepresentation);
+    EntityRepresentation old = tableEntities.put(entityRepresentation.table, entityRepresentation);
+    if (old != null)
+    {
+      throw new RojoException("duplicate table:" + entityRepresentation.table);
     }
+    return entityRepresentation;
+  }
 
-    private EntityRepresentation(Class<? extends Object> entityClass) {
+  /**
+   *
+   *
+   * @param entityClass
+   */
+  private EntityRepresentation(Class<? extends Object> entityClass)
+  {
+    verifyEntityAnnotation(entityClass);
+    cacheable = entityClass.getAnnotation(Entity.class).cache();
+    idCache = entityClass.getAnnotation(Entity.class).idCache();
+    table = entityClass.getAnnotation(Entity.class).table();
+    if (table.isEmpty())
+    {
+      table = entityClass.getSimpleName();
+    }
+    allField(entityClass);
+    if (id == null)
+    {
+      error(entityClass, "missing @Id field!");
+    }
+    fields = new Field[fieldMap.size()];
+    columns = new String[fieldMap.size()];
+    fieldMap.values().toArray(fields);
+    for (int i = 0; i < columns.length; i++)
+    {
+      if (fields[i].isAnnotationPresent(Value.class))
+      {
+        columns[i] = fields[i].getAnnotation(Value.class).column();
+      }
+      if (columns[i] == null || columns[i].isEmpty())
+      {
+        columns[i] = fields[i].getName();
+      }
+      columnMap.put(fields[i].getName(), columns[i]);
+    }
+  }
 
-        validator.validateEntity(entityClass);
-
-        id = IdUtil.getIdField(entityClass);
-
-        for (Field field : entityClass.getDeclaredFields()) {
-            if (field.isAnnotationPresent(Value.class)) {
-                values.add(field);
-            }
-            if (field.isAnnotationPresent(Reference.class)) {
-                references.add(field);
-            }
+  /**
+   * fields include super classes
+   *
+   * @param entityClass
+   * @return
+   */
+  private void allField(Class<? extends Object> claz)
+  {
+    Field[] fs = claz.getDeclaredFields();
+    for (Field f : fs)
+    {
+      if (f.isAnnotationPresent(Id.class))
+      {
+        if (id == null)
+        {
+          if (!(f.getType() == String.class))
+          {
+            error(claz, "invalid @Id field type! accepted types are {String}");
+          }
+          f.setAccessible(true);
+          id = f;
+          fieldMap.put(f.getName(), f);
+          Id annotation = id.getAnnotation(Id.class);
+          idGenerator = IdGenerator.getGenerator(annotation.generator());
+          autoId = annotation.auto();
+          if (idGenerator == null)
+          {
+            error(claz, "idGenerator is null!");
+          }
+        } else
+        {
+          error(claz, "duplicate @Id field type !");
         }
-    }
-
-    public long getId(Object entity) {
-        return IdUtil.readId(entity, id);
-    }
-
-    public void setId(Object entity, long idValue) {
-        boolean idFieldAccessibility = id.isAccessible();
-        if (!idFieldAccessibility) id.setAccessible(true);
-        try {
-            id.set(entity, idValue);
-        } catch (Exception e) {
-            new InvalidTypeException(e);
-        } finally {
-            if (!idFieldAccessibility) id.setAccessible(idFieldAccessibility);
+      } else if (f.isAnnotationPresent(Value.class))
+      {
+        if (Collection.class.isAssignableFrom(f.getType()))
+        {
+          if (!(f.getType() == Set.class || f.getType() == List.class || f.getType() == Collection.class))
+          {
+            error(claz, "only Collection, Set and List are supported");
+          }
         }
+        Value value = f.getAnnotation(Value.class);
+        f.setAccessible(true);
+        fieldMap.put(f.getName(), f);
+        if (f.isAnnotationPresent(Index.class))
+        {
+          this.indexes.add(f);
+        }
+        if (value.unique())
+        {
+          if (unique == null && f.getType() != byte[].class)//blob not unique
+          {
+            this.unique = f;
+          } else
+          {
+            error(claz, "more than one unique field or blob unique.");
+          }
+        }
+      }
     }
+    Class sclaz = claz.getSuperclass();
+    if (sclaz != null)
+    {
+      allField(sclaz);
+    }
+  }
 
-    public List<Field> getValues() {
-        return values;
+  private void verifyEntityAnnotation(Class<? extends Object> entityClass)
+  {
+    if (entityClass.getAnnotation(Entity.class) == null)
+    {
+      error(entityClass, "missing @Entity annotation");
     }
+  }
 
-    public List<Field> getReferences() {
-        return references;
+  private void error(Class<? extends Object> entityClass, String msg)
+  {
+    throw new InvalidTypeException(entityClass.getCanonicalName() + ": " + msg);
+  }
+
+  public Field getUnique()
+  {
+    return unique;
+  }
+
+  public IdGenerator getIdGenerator()
+  {
+    return idGenerator;
+  }
+
+  public boolean isAutoId()
+  {
+    return autoId;
+  }
+
+  public String getTable()
+  {
+    return table;
+  }
+
+  public String[] getColumns()
+  {
+    return columns;
+  }
+
+  public String getId(Object entity)
+  {
+    return readId(entity, id);
+  }
+
+  public void setId(Object entity, String idValue)
+  {
+    try
+    {
+      id.set(entity, idValue);
+    } catch (Exception e)
+    {
+      throw new InvalidTypeException(e);
     }
+  }
+
+  public Field[] getFields()
+  {
+    return fields;
+  }
+
+  public Map<String, Field> getFieldMap()
+  {
+    return fieldMap;
+  }
+
+  public Field getField(String k)
+  {
+    return fieldMap.get(k);
+  }
+
+  String getColumn(String f)
+  {
+    return columnMap.get(f);
+  }
+
+  private String readId(Object entity, Field id)
+  {
+    String returnValue = null;
+    try
+    {
+      Object o = id.get(entity);
+      returnValue = o == null ? null : o.toString();
+    } catch (Exception e)
+    {
+      throw new RojoException("access error" + e.getMessage());
+    }
+    return returnValue;
+  }
+
+  public boolean isCacheable()
+  {
+    return cacheable;
+  }
+
+  public void setCacheable(boolean cache)
+  {
+    this.cacheable = cache;
+  }
+
+  public void setIdCache(boolean idCache)
+  {
+    this.idCache = idCache;
+  }
+
+  public boolean isIdCache()
+  {
+    return idCache;
+  }
+
+  Object readProperty(Object entity, Field f)
+  {
+    try
+    {
+      Object o = f.get(entity);
+      return o;
+    } catch (Exception ex)
+    {
+      throw new RojoException("access error" + ex.getMessage());
+    }
+  }
+
+  /**
+   * indexed fields
+   *
+   * @return
+   */
+  public List<Field> getIndexes()
+  {
+    return indexes;
+  }
+
+  /**
+   * sample entity
+   *
+   * @return
+   */
+  boolean isSampleEntity()
+  {
+    return this.unique == null && this.indexes.isEmpty();
+  }
 }

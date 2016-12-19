@@ -7,6 +7,12 @@ import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
-public @interface Entity {
+public @interface Entity
+{
 
+  boolean cache() default false;
+
+  boolean idCache() default true;
+
+  String table() default "";
 }

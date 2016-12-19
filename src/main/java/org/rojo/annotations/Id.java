@@ -7,6 +7,19 @@ import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.FIELD)
-public @interface Id {
+public @interface Id
+{
+
+  /**
+   *
+   * @return
+   */
+  String generator() default "defaultGenerator";
+
+  /**
+   * 
+   * @return
+   */
+  boolean auto() default false;
 
 }
